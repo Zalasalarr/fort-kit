@@ -4,7 +4,7 @@ import { fmtIn } from '../logic.js';
 
 const CATS = { lumber: 'Lumber', sheet: 'Sheets', masonry: 'Masonry', metal: 'Metal', rope: 'Rope', holds: 'Holds' };
 
-export default function PartsScreen({ filter, setFilter, addPart, addPiece, catalog, setCatalog, library = [], onPlaceCustom, onRenameCustom, onDeleteCustom }) {
+export default function PartsScreen({ filter, setFilter, addPart, addPiece, catalog, setCatalog, library = [], onPlaceCustom, onRenameCustom, onDeleteCustom, onSharePart, onExportLibrary, onImportFile }) {
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState('');
   const [confirm, setConfirm] = useState(null);
@@ -46,6 +46,18 @@ export default function PartsScreen({ filter, setFilter, addPart, addPiece, cata
       </div>
       )}
 
+      {catalog === 'custom' && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
+          <label className="btn-outline" style={{ cursor: 'pointer' }}>
+            Import file
+            <input type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={e => { onImportFile(e.target.files && e.target.files[0]); e.target.value = ''; }} />
+          </label>
+          <div className={'btn-outline' + (library.length ? '' : ' disabled')} onClick={onExportLibrary}>Export all</div>
+          <div style={{ font: '500 10px "IBM Plex Mono",monospace', color: 'var(--ink-55)', lineHeight: 1.4, flex: 1, minWidth: 180 }}>
+            Share a part as a link to send it to another device, or export the whole library as a file and import it there.
+          </div>
+        </div>
+      )}
       {catalog === 'custom' && library.length === 0 && (
         <div style={{ padding: '24px 16px', fontSize: 13, lineHeight: 1.5, color: 'var(--ink-55)', maxWidth: 420 }}>
           No custom parts yet. In Build, select a group or a piece (or nothing, for the whole build) and tap <b style={{ color: 'var(--ink)' }}>Save as part</b>.
@@ -78,6 +90,7 @@ export default function PartsScreen({ filter, setFilter, addPart, addPiece, cata
             >
               Add
             </div>
+            <div className="btn-outline" style={{ padding: '8px 10px' }} onClick={() => onSharePart(it.id)}>Share</div>
             {confirm === it.id ? (
               <div className="btn-outline" style={{ padding: '8px 10px', borderColor: 'var(--ink)', background: 'var(--ink)', color: 'var(--bg)' }} onClick={() => { setConfirm(null); onDeleteCustom(it.id); }}>Sure?</div>
             ) : (

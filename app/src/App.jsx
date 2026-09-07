@@ -8,7 +8,7 @@ import {
 } from './logic.js';
 import { generate, transformGroup, explode, defaultParams, newGroupId, TOOLS } from './generators.js';
 import { reducer, initState } from './store.js';
-import { shareUrl, loadFromHash, loadPrefs, savePrefs, loadWorkspace, loadProject, saveProject, saveIndex, removeProject, newProjectId, loadLibrary, saveLibrary } from './persist.js';
+import { shareUrl, loadFromHash, loadPrefs, savePrefs, loadWorkspace, loadProject, saveProject, saveIndex, removeProject, newProjectId, loadLibrary, saveLibrary, partShareUrl, loadPartsFromHash, exportLibraryJson, parseLibraryJson } from './persist.js';
 import { snapshot } from './BuildView.js';
 import TabBar from './components/TabBar.jsx';
 import YardScreen from './components/YardScreen.jsx';
@@ -47,6 +47,13 @@ const entry = (id, project) => ({ id, name: project.name, updated: Date.now(), p
 
 // Pick the project to open on load: a shared link becomes a new project, otherwise the last one open
 function bootstrap() {
+  const sharedParts = loadPartsFromHash();
+  const res = bootstrapProject();
+  if (sharedParts.length) { res.sharedParts = sharedParts; res.tab = 'parts'; }
+  return res;
+}
+
+function bootstrapProject() {
   let ws = loadWorkspace();
   const fromHash = loadFromHash();
   if (fromHash) {
@@ -171,6 +178,60 @@ export default function App() {
     say('Custom part deleted');
   };
 
+  // Bring parts in from a link or a file; parts already on this device are skipped
+  const importParts = items => {
+    if (!items.length) { say('No parts found to import'); return; }
+    const have = new Set(library.map(it => it.id));
+    const fresh = items.filter(it => !have.has(it.id)).map(it => ({ ...it, count: it.pieces.length, cost: Math.round(cost(it.pieces)) }));
+    if (fresh.length) updateLibrary(lib => [...fresh, ...lib]);
+    const skipped = items.length - fresh.length;
+    say(fresh.length
+      ? `Imported ${fresh.length} part${fresh.length > 1 ? 's' : ''}${skipped ? ` · ${skipped} already here` : ''}`
+      : `Already on this device: ${items.map(it => it.name).join(', ')}`);
+    setUi({ tab: 'parts', catalog: 'custom' });
+  };
+
+  const sharePart = async id => {
+    const item = library.find(it => it.id === id);
+    if (!item) return;
+    const url = partShareUrl([item]);
+    if (navigator.share) {
+      try { await navigator.share({ title: `${item.name} · Fort Kit part`, url }); return; } catch { /* cancelled */ }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      say(`Link to "${item.name}" copied`);
+    } catch {
+      window.prompt('Copy this link', url);
+    }
+  };
+
+  const exportLibrary = () => {
+    if (!library.length) { say('Nothing to export yet'); return; }
+    const blob = new Blob([exportLibraryJson(library)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'fortkit-parts.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    say(`Exported ${library.length} part${library.length > 1 ? 's' : ''}`);
+  };
+
+  const importLibraryFile = async file => {
+    if (!file) return;
+    importParts(parseLibraryJson(await file.text()));
+  };
+
+  useEffect(() => {
+    if (boot.current.sharedParts && !boot.current.sharedImported) {
+      boot.current.sharedImported = true;
+      importParts(boot.current.sharedParts);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   /* ---------- projects ---------- */
   const switchTo = (id, proj, tab = 'build') => {
     dispatch({ type: 'load', project: proj });
@@ -247,6 +308,8 @@ export default function App() {
   // A share link pasted into the running app is imported as a new project
   useEffect(() => {
     const onHash = () => {
+      const sharedParts = loadPartsFromHash();
+      if (sharedParts.length) { importParts(sharedParts); return; }
       const shared = loadFromHash();
       if (!shared) return;
       createProject(shared);
@@ -614,6 +677,7 @@ export default function App() {
                 catalog={ui.catalog} setCatalog={c => setUi({ catalog: c })}
                 addPart={addPart} addPiece={addPiece}
                 library={library} onPlaceCustom={placeCustom} onRenameCustom={renameCustom} onDeleteCustom={deleteCustom}
+                onSharePart={sharePart} onExportLibrary={exportLibrary} onImportFile={importLibraryFile}
               />
             )}
             {ui.tab === 'list' && (
