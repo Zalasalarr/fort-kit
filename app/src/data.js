@@ -75,3 +75,33 @@ export const SAMPLE_PROJECT = {
 export function emptyProject(yard) {
   return { name: 'Untitled build', parts: [], yard: { ...yard }, cells: {} };
 }
+
+/* ---------- stock pieces (true dimensions, inches) ---------- */
+// T = thickness (vertical when lying flat), W = width, L = length along the piece.
+// unit: 'ft' priced per foot of length, 'each' per piece, 'sheet' per full 4×8 sheet by area.
+
+export const STOCK = [
+  { id: '2x2', n: '2×2', cat: 'lumber', mat: 'wood', T: 1.5, W: 1.5, L: 96, maxL: 96, lengths: [96], price: .45, unit: 'ft' },
+  { id: '2x4', n: '2×4', cat: 'lumber', mat: 'wood', T: 1.5, W: 3.5, L: 96, maxL: 192, lengths: [96, 120, 144, 192], price: .55, unit: 'ft' },
+  { id: '2x6', n: '2×6', cat: 'lumber', mat: 'wood', T: 1.5, W: 5.5, L: 96, maxL: 192, lengths: [96, 120, 144, 192], price: .95, unit: 'ft' },
+  { id: '2x8', n: '2×8', cat: 'lumber', mat: 'wood', T: 1.5, W: 7.25, L: 96, maxL: 192, lengths: [96, 120, 144, 192], price: 1.35, unit: 'ft' },
+  { id: '4x4', n: '4×4 post', cat: 'lumber', mat: 'wood', T: 3.5, W: 3.5, L: 96, maxL: 144, lengths: [96, 120, 144], price: 1.6, unit: 'ft', upright: true },
+  { id: '1x3', n: '1×3', cat: 'lumber', mat: 'wood', T: .75, W: 2.5, L: 96, maxL: 96, lengths: [96], price: .5, unit: 'ft' },
+  { id: '1x6', n: '1×6 fence board', cat: 'lumber', mat: 'wood', T: .75, W: 5.5, L: 72, maxL: 96, lengths: [72, 96], price: .6, unit: 'ft' },
+  { id: 'ply12', n: '½" plywood', cat: 'sheet', mat: 'wood', T: .5, W: 48, L: 96, maxL: 96, maxW: 48, price: 32, unit: 'sheet' },
+  { id: 'ply34', n: '¾" plywood', cat: 'sheet', mat: 'wood', T: .75, W: 48, L: 96, maxL: 96, maxW: 48, price: 48, unit: 'sheet' },
+  { id: 'brick', n: 'Brick', cat: 'masonry', mat: 'brick', T: 2.25, W: 3.625, L: 7.625, price: .65, unit: 'each', fixed: true },
+  { id: 'block', n: 'Concrete block', cat: 'masonry', mat: 'brick', T: 7.625, W: 7.625, L: 15.625, price: 2.2, unit: 'each', fixed: true },
+  { id: 'paver', n: 'Paver 12×12', cat: 'masonry', mat: 'brick', T: 1.5, W: 12, L: 12, price: 2.8, unit: 'each', fixed: true },
+  { id: 'tube', n: '1" steel tube', cat: 'metal', mat: 'metal', T: 1, W: 1, L: 72, maxL: 240, lengths: [72, 96, 120, 144, 192, 240], price: 2.4, unit: 'ft' },
+  { id: 'rope', n: '⅜" manila rope', cat: 'rope', mat: 'rope', T: .6, W: .6, L: 48, maxL: 600, lengths: [600], price: .35, unit: 'ft' },
+  { id: 'hold', n: 'Climbing hold', cat: 'holds', mat: 'holds', T: 2.5, W: 3, L: 4, price: 3.5, unit: 'each', fixed: true, attach: true },
+];
+
+export const QUICK_STOCK = ['2x4', '2x6', '4x4', 'ply12', 'brick', 'block', 'tube', 'rope', 'hold'];
+
+export function stockById(id) {
+  return STOCK.find(s => s.id === id);
+}
+
+export const SNAPS = [1, 6, 12];

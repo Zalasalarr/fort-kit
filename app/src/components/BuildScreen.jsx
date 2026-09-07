@@ -1,28 +1,49 @@
-import { MATS, PARTS } from '../data.js';
-import { partName } from '../logic.js';
+import { MATS, PARTS, QUICK_STOCK, SNAPS, stockById } from '../data.js';
+import { partName, isPiece, pieceDims, pieceBottom, fmtIn } from '../logic.js';
 import Viewport from './Viewport.jsx';
 
 const PALETTE = PARTS.filter(p => p.k !== 'mass').slice(0, 8);
+const PITCHES = [[0, 'Flat'], [45, '45°'], [90, 'Upright']];
+
+function Stepper({ value, onDown, onUp, big, minWidth = 44 }) {
+  const sz = big ? 34 : 26;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <button className="step-btn" style={{ width: sz, height: sz, fontSize: big ? 16 : 14 }} onClick={onDown}>−</button>
+      <div style={{ font: `600 ${big ? 22 : 15}px/1 "Barlow Condensed",sans-serif`, minWidth, textAlign: 'center', whiteSpace: 'nowrap' }}>{value}</div>
+      <button className="step-btn" style={{ width: sz, height: sz, fontSize: big ? 16 : 14 }} onClick={onUp}>+</button>
+    </div>
+  );
+}
 
 export default function BuildScreen({
-  parts, sel, yard, maxLvl, marks, setMarks, render, setRender, camera, setCamera,
-  setSel, mutSel, addPart, removeSel, duplicateSel, moveSel, onDragStart, onDragEnd,
+  parts, sel, yard, maxLvl, marks, setMarks, render, setRender, camera, setCamera, snap, setSnap,
+  setSel, mutSel, editPiece, addPart, addPiece, removeSel, duplicateSel, dropSel,
+  moveSel, movePiece, onDragStart, onDragEnd,
 }) {
   const selPart = parts[sel];
+  const piece = selPart && isPiece(selPart);
+  const stock = piece ? stockById(selPart.stock) : null;
+  const dims = piece ? pieceDims(selPart) : null;
   const off = selPart ? '' : ' disabled';
   const blueprint = render === 'blueprint';
   const persp = camera === 'persp';
+  const snapLabel = snap === 12 ? '1 ft' : `${snap} in`;
+
+  const moveBy = (dx, dz) => piece
+    ? editPiece(p => { p.cx += dx * snap; p.cz += dz * snap; }, false)
+    : mutSel(p => { p.x = +(p.x + dx * snap / 12).toFixed(3); p.z = +(p.z + dz * snap / 12).toFixed(3); });
 
   return (
     <div className="editor">
       <Viewport
         parts={parts} sel={sel} yard={yard} pick
-        mode={render} camera={camera}
-        onSelect={setSel} onMove={moveSel} onDragStart={onDragStart} onDragEnd={onDragEnd}
+        mode={render} camera={camera} snap={snap}
+        onSelect={setSel} onMove={moveSel} onMovePiece={movePiece} onDragStart={onDragStart} onDragEnd={onDragEnd}
         marks={marks} onPickPin={setSel}
-        caption={`${persp ? 'Perspective' : 'Iso'} · 1 ft grid · drag a part to move · drag space to orbit`}
+        caption={`${persp ? 'Perspective' : 'Iso'} · ${snapLabel} snap · drag a part to move · drag space to orbit`}
         footer={`${parts.length} parts · ${maxLvl || 0} ft high`}
-        emptyText="Nothing built yet — add a part below, or paint one in Plan"
+        emptyText="Nothing built yet — add a part or a piece below, or paint one in Plan"
       >
         <div className="vp-tools">
           <div className={'btn-outline' + (blueprint ? ' on' : '')} onClick={() => setRender(blueprint ? 'real' : 'blueprint')}>Blueprint</div>
@@ -33,6 +54,7 @@ export default function BuildScreen({
 
       <div className="side">
         <div className="panel">
+          {/* selected */}
           <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <div style={{ minWidth: 0 }}>
               <div className="mono" style={{ color: 'var(--steel)' }}>
@@ -42,52 +64,134 @@ export default function BuildScreen({
                 {selPart ? partName(selPart) : 'Nothing selected'}
               </div>
             </div>
-            <div className={'row-gap' + off} style={{ display: 'flex', gap: 6 }}>
-              <div className="btn-outline" onClick={() => mutSel(p => { p.rot = ((p.rot || 0) + 1) % 4; })}>Turn</div>
+            <div className={off} style={{ display: 'flex', gap: 6 }}>
+              <div className="btn-outline" title="Turn 90°" onClick={() => piece ? editPiece(p => { p.yaw = ((p.yaw || 0) + 90) % 360; }) : mutSel(p => { p.rot = ((p.rot || 0) + 1) % 4; })}>Turn</div>
+              {piece && <div className="btn-outline" title="Turn 15°" onClick={() => editPiece(p => { p.yaw = ((p.yaw || 0) + 15) % 360; })}>15°</div>}
               <div className="btn-outline" onClick={duplicateSel}>Copy</div>
               <div className="btn-outline" onClick={removeSel}>Delete</div>
             </div>
           </div>
 
+          {/* move & height */}
           <div className={'grid-2' + off} style={{ borderBottom: '1px solid var(--line)' }}>
             <div style={{ padding: '9px 16px', borderRight: '1px solid var(--line)' }}>
-              <div className="mono" style={{ color: 'var(--grey)', marginBottom: 6 }}>Move · 1 ft</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,30px)', gridAutoRows: 26, gap: 3, justifyContent: 'center' }}>
-                <span /><div className="step-btn" onClick={() => mutSel(p => { p.z -= 1; })}>▲</div><span />
-                <div className="step-btn" onClick={() => mutSel(p => { p.x -= 1; })}>◀</div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', font: '500 9px "IBM Plex Mono",monospace', color: 'rgba(29,31,32,.45)' }}>
-                  {selPart ? `${selPart.x},${selPart.z}` : '—'}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, gap: 6 }}>
+                <div className="mono" style={{ color: 'var(--grey)' }}>Move</div>
+                <div style={{ display: 'flex', border: '1px solid var(--line-24)' }}>
+                  {SNAPS.map(s => (
+                    <div key={s} className={'seg' + (snap === s ? ' on' : '')} style={{ padding: '3px 6px', fontSize: 10.5 }} onClick={() => setSnap(s)}>
+                      {s === 12 ? '1 ft' : `${s} in`}
+                    </div>
+                  ))}
                 </div>
-                <div className="step-btn" onClick={() => mutSel(p => { p.x += 1; })}>▶</div>
-                <span /><div className="step-btn" onClick={() => mutSel(p => { p.z += 1; })}>▼</div><span />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,30px)', gridAutoRows: 26, gap: 3, justifyContent: 'center' }}>
+                <span /><div className="step-btn" onClick={() => moveBy(0, -1)}>▲</div><span />
+                <div className="step-btn" onClick={() => moveBy(-1, 0)}>◀</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', font: '500 8.5px "IBM Plex Mono",monospace', color: 'rgba(29,31,32,.45)', whiteSpace: 'nowrap' }}>
+                  {selPart ? (piece ? `${fmtIn(selPart.cx)}` : `${selPart.x},${selPart.z}`) : '—'}
+                </div>
+                <div className="step-btn" onClick={() => moveBy(1, 0)}>▶</div>
+                <span /><div className="step-btn" onClick={() => moveBy(0, 1)}>▼</div><span />
               </div>
             </div>
             <div style={{ padding: '9px 16px' }}>
-              <div className="mono" style={{ color: 'var(--grey)', marginBottom: 6 }}>Height</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div className="mono" style={{ color: 'var(--grey)' }}>Height</div>
+                {piece && <div className="btn-outline" style={{ padding: '3px 8px', fontSize: 10.5 }} title="Rest on whatever is underneath" onClick={dropSel}>Drop</div>}
+              </div>
+              {piece ? (
+                <Stepper big value={pieceBottom(selPart) < .5 ? 'ground' : fmtIn(pieceBottom(selPart))} minWidth={64}
+                  onDown={() => editPiece(p => { p.cy -= snap; }, false, true)}
+                  onUp={() => editPiece(p => { p.cy += snap; }, false)} />
+              ) : (
+                <Stepper big value={selPart ? `${selPart.lvl} ft` : '—'}
+                  onDown={() => mutSel(p => { p.lvl = Math.max(0, p.lvl - 1); })}
+                  onUp={() => mutSel(p => { p.lvl = Math.min(12, p.lvl + 1); })} />
+              )}
+            </div>
+          </div>
+
+          {/* piece: orientation & size */}
+          {piece && (
+            <div style={{ padding: '10px 16px 10px', borderBottom: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 9 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button className="step-btn" style={{ width: 34, height: 34, fontSize: 16 }} onClick={() => mutSel(p => { p.lvl = Math.max(0, p.lvl - 1); })}>−</button>
-                <div style={{ font: '600 26px/1 "Barlow Condensed",sans-serif', minWidth: 44, textAlign: 'center' }}>
-                  {selPart ? `${selPart.lvl} ft` : '—'}
+                <div className="mono" style={{ color: 'var(--grey)', width: 62, flex: 'none' }}>Angle</div>
+                <div style={{ display: 'flex', border: '1px solid var(--line-24)', flex: 1 }}>
+                  {PITCHES.map(([deg, n]) => (
+                    <div key={deg} className={'seg' + (selPart.pitch === deg ? ' on' : '')} style={{ padding: '6px 4px', fontSize: 12 }} onClick={() => editPiece(p => { p.pitch = deg; })}>{n}</div>
+                  ))}
                 </div>
-                <button className="step-btn" style={{ width: 34, height: 34, fontSize: 16 }} onClick={() => mutSel(p => { p.lvl = Math.min(12, p.lvl + 1); })}>+</button>
+                <div className={'chip' + (selPart.roll ? ' on' : '')} style={{ flex: 'none', padding: '6px 9px' }} onClick={() => editPiece(p => { p.roll = p.roll ? 0 : 90; })}>On edge</div>
+              </div>
+              {!stock.fixed && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="mono" style={{ color: 'var(--grey)', width: 62, flex: 'none' }}>Length</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <button className="step-btn" style={{ width: 32, height: 26, fontSize: 11 }} onClick={() => editPiece(p => { p.L = Math.max(1, p.L - 12); })}>−12</button>
+                    <button className="step-btn" style={{ width: 28, height: 26, fontSize: 11 }} onClick={() => editPiece(p => { p.L = Math.max(1, p.L - 1); })}>−1</button>
+                    <div style={{ font: '600 16px/1 "Barlow Condensed",sans-serif', minWidth: 58, textAlign: 'center' }}>{fmtIn(dims.L)}</div>
+                    <button className="step-btn" style={{ width: 28, height: 26, fontSize: 11 }} onClick={() => editPiece(p => { p.L = Math.min(stock.maxL, p.L + 1); })}>+1</button>
+                    <button className="step-btn" style={{ width: 32, height: 26, fontSize: 11 }} onClick={() => editPiece(p => { p.L = Math.min(stock.maxL, p.L + 12); })}>+12</button>
+                  </div>
+                </div>
+              )}
+              {stock.unit === 'sheet' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="mono" style={{ color: 'var(--grey)', width: 62, flex: 'none' }}>Width</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <button className="step-btn" style={{ width: 32, height: 26, fontSize: 11 }} onClick={() => editPiece(p => { p.W = Math.max(1, p.W - 12); })}>−12</button>
+                    <button className="step-btn" style={{ width: 28, height: 26, fontSize: 11 }} onClick={() => editPiece(p => { p.W = Math.max(1, p.W - 1); })}>−1</button>
+                    <div style={{ font: '600 16px/1 "Barlow Condensed",sans-serif', minWidth: 58, textAlign: 'center' }}>{fmtIn(dims.W)}</div>
+                    <button className="step-btn" style={{ width: 28, height: 26, fontSize: 11 }} onClick={() => editPiece(p => { p.W = Math.min(stock.maxW, p.W + 1); })}>+1</button>
+                    <button className="step-btn" style={{ width: 32, height: 26, fontSize: 11 }} onClick={() => editPiece(p => { p.W = Math.min(stock.maxW, p.W + 12); })}>+12</button>
+                  </div>
+                </div>
+              )}
+              <div style={{ font: '500 10px "IBM Plex Mono",monospace', color: 'var(--ink-55)' }}>
+                {dims.T} × {dims.W} in actual · at {fmtIn(selPart.cx)}, {fmtIn(selPart.cz)} · turned {selPart.yaw || 0}°
               </div>
             </div>
-          </div>
+          )}
 
-          <div className={off} style={{ padding: '10px 16px 8px', borderBottom: '1px solid var(--line)' }}>
-            <div className="mono" style={{ color: 'var(--grey)', marginBottom: 7 }}>Material</div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {Object.keys(MATS).map(k => (
-                <div key={k} className={'chip' + (selPart && selPart.mat === k ? ' on' : '')} onClick={() => mutSel(p => { p.mat = k; })}>
-                  <span className="dot" style={{ background: MATS[k].c }} />
-                  {MATS[k].n}
-                </div>
-              ))}
+          {/* assembly: material */}
+          {!piece && (
+            <div className={off} style={{ padding: '10px 16px 8px', borderBottom: '1px solid var(--line)' }}>
+              <div className="mono" style={{ color: 'var(--grey)', marginBottom: 7 }}>Material</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {Object.keys(MATS).map(k => (
+                  <div key={k} className={'chip' + (selPart && selPart.mat === k ? ' on' : '')} onClick={() => mutSel(p => { p.mat = k; })}>
+                    <span className="dot" style={{ background: MATS[k].c }} />
+                    {MATS[k].n}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* add a piece */}
+          <div style={{ padding: '10px 0 6px', borderBottom: '1px solid var(--line)' }}>
+            <div className="mono" style={{ color: 'var(--grey)', margin: '0 16px 8px' }}>Add a piece · true size</div>
+            <div className="palette">
+              {QUICK_STOCK.map(id => {
+                const s = stockById(id);
+                return (
+                  <div key={id} className="palette-card" style={{ width: 96 }} onClick={() => addPiece(id)}>
+                    <div style={{ height: 3, width: 26, background: MATS[s.mat].c, border: '1px solid rgba(29,31,32,.25)', marginBottom: 8 }} />
+                    <div style={{ font: '600 15px/1.1 "Barlow Condensed",sans-serif', marginBottom: 3 }}>{s.n}</div>
+                    <div style={{ font: '500 10px "IBM Plex Mono",monospace', color: 'var(--ink-55)' }}>{s.T}×{s.W} in</div>
+                    <div style={{ font: '500 10px "IBM Plex Mono",monospace', color: 'var(--steel-deep)', marginTop: 4 }}>
+                      ${s.price}{s.unit === 'ft' ? '/ft' : s.unit === 'sheet' ? '/sheet' : ' ea'}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
+          {/* add a part */}
           <div style={{ padding: '10px 0 14px' }}>
-            <div className="mono" style={{ color: 'var(--grey)', margin: '0 16px 8px' }}>Add a part</div>
+            <div className="mono" style={{ color: 'var(--grey)', margin: '0 16px 8px' }}>Add an assembly</div>
             <div className="palette">
               {PALETTE.map(p => (
                 <div key={p.k} className="palette-card" onClick={() => addPart(p.k)}>
@@ -102,12 +206,15 @@ export default function BuildScreen({
 
           <div className="kbd-hint">
             <span><kbd>↑↓←→</kbd> move</span>
-            <span><kbd>+</kbd><kbd>−</kbd> height</span>
-            <span><kbd>R</kbd> turn</span>
+            <span><kbd>PgUp</kbd><kbd>PgDn</kbd> height</span>
+            <span><kbd>G</kbd> drop</span>
+            <span><kbd>R</kbd> turn · <kbd>⇧R</kbd> 15°</span>
+            <span><kbd>T</kbd> angle</span>
+            <span><kbd>E</kbd> on edge</span>
+            <span><kbd>[</kbd><kbd>]</kbd> length</span>
             <span><kbd>D</kbd> copy</span>
             <span><kbd>Del</kbd> delete</span>
             <span><kbd>Ctrl</kbd><kbd>Z</kbd> undo</span>
-            <span>scroll to zoom</span>
           </div>
         </div>
       </div>

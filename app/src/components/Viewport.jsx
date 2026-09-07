@@ -4,8 +4,8 @@ import Pins from './Pins.jsx';
 
 export default function Viewport({
   parts, sel = -1, yard, pick = false, view = 'iso', zoom = 9,
-  mode = 'blueprint', camera = 'iso',
-  onSelect, onMove, onDragStart, onDragEnd,
+  mode = 'blueprint', camera = 'iso', snap = 12,
+  onSelect, onMove, onMovePiece, onDragStart, onDragEnd,
   marks = false, onPickPin, viewRef,
   caption, footer, emptyText, className = '', children,
 }) {
@@ -14,7 +14,7 @@ export default function Viewport({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const v = new BuildView(canvas, { ...VIEWS[view], zoom, pick, mode, camera });
+    const v = new BuildView(canvas, { ...VIEWS[view], zoom, pick, mode, camera, snap });
     if (viewRef) viewRef.current = v;
     setBv(v);
     const ro = new ResizeObserver(() => { v.resize(); v.draw(); });
@@ -31,8 +31,10 @@ export default function Viewport({
     if (!bv) return;
     bv.onSelect = onSelect || null;
     bv.onMove = onMove || null;
+    bv.onMovePiece = onMovePiece || null;
     bv.onDragStart = onDragStart || null;
     bv.onDragEnd = onDragEnd || null;
+    bv.setSnap(snap);
   });
 
   useEffect(() => {

@@ -1,7 +1,7 @@
 import { MATS } from '../data.js';
-import { partName, costOf } from '../logic.js';
+import { partName, costOf, money, heightLabel, positionLabel, isPiece } from '../logic.js';
 
-export default function PrintSheet({ project, snapshot, cuts, checks, total }) {
+export default function PrintSheet({ project, snapshot, cuts, buys = [], checks, total }) {
   const { parts, yard } = project;
   const date = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 
@@ -12,7 +12,7 @@ export default function PrintSheet({ project, snapshot, cuts, checks, total }) {
           <div className="ps-kicker">Fort Kit · Sheet A-01 · {date}</div>
           <h1>{project.name}</h1>
           <div className="ps-meta">
-            Yard {yard.w}×{yard.d} ft · {yard.ground} · ages {yard.age} · 1 ft grid, 2 ft plan squares
+            Yard {yard.w}×{yard.d} ft · {yard.ground} · ages {yard.age} · 1 ft grid, 2 ft plan squares, pieces at actual size
           </div>
         </div>
         <div className="ps-est">
@@ -34,9 +34,9 @@ export default function PrintSheet({ project, snapshot, cuts, checks, total }) {
                   <td>{i + 1}</td>
                   <td>{partName(p)}</td>
                   <td>{MATS[p.mat].n}</td>
-                  <td>{p.lvl ? p.lvl + ' ft' : 'ground'}</td>
-                  <td>at {p.x},{p.z}{p.rot ? ` · turned ${p.rot * 90}°` : ''}</td>
-                  <td className="num">${costOf(p)}</td>
+                  <td>{heightLabel(p)}</td>
+                  <td>at {positionLabel(p)}{isPiece(p) ? (p.yaw ? ` · ${p.yaw}°` : '') + (p.pitch ? ` · ${p.pitch === 90 ? 'upright' : p.pitch + '° pitch'}` : '') + (p.roll ? ' · on edge' : '') : (p.rot ? ` · turned ${p.rot * 90}°` : '')}</td>
+                  <td className="num">${money(costOf(p))}</td>
                 </tr>
               ))}
             </tbody>
@@ -52,6 +52,18 @@ export default function PrintSheet({ project, snapshot, cuts, checks, total }) {
               ))}
             </tbody>
           </table>
+          {buys.length > 0 && (
+            <>
+              <h2 style={{ marginTop: 10 }}>Stock to buy</h2>
+              <table>
+                <tbody>
+                  {buys.map((b, i) => (
+                    <tr key={i}><td>{b.label}</td><td className="num">{b.lines.join(', ')}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
         </section>
 
         <section>

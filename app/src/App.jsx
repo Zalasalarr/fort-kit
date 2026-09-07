@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { SAMPLE_PROJECT, emptyProject, partByKey } from './data.js';
-import { cost, cutList, safetyChecks, maxLevel, massParts } from './logic.js';
+import { SAMPLE_PROJECT, emptyProject, partByKey, stockById } from './data.js';
+import {
+  cost, cutList, buyList, safetyChecks, maxLevel, massParts,
+  isPiece, newPiece, restAt, pieceBottom, supportUnder, copyOffset,
+} from './logic.js';
 import { reducer, initState } from './store.js';
 import { loadSaved, save, shareUrl, loadFromHash, loadPrefs, savePrefs } from './persist.js';
 import { snapshot } from './BuildView.js';
@@ -49,6 +52,7 @@ export default function App() {
 
   const total = useMemo(() => cost(parts), [parts]);
   const cuts = useMemo(() => cutList(parts), [parts]);
+  const buys = useMemo(() => buyList(parts), [parts]);
   const checks = useMemo(() => safetyChecks(parts, yard, total), [parts, yard, total]);
   const maxLvl = useMemo(() => maxLevel(parts), [parts]);
 
@@ -70,14 +74,13 @@ export default function App() {
   }, [project]);
 
   useEffect(() => {
-    savePrefs({ render: ui.render, camera: ui.camera });
-  }, [ui.render, ui.camera]);
+    savePrefs({ render: ui.render, camera: ui.camera, snap: ui.snap });
+  }, [ui.render, ui.camera, ui.snap]);
 
   /* ---------- actions ---------- */
-  const setTab = tab => dispatch({ type: 'ui', patch: { tab } });
-  const setRender = render => dispatch({ type: 'ui', patch: { render } });
-  const setCamera = camera => dispatch({ type: 'ui', patch: { camera } });
-  const setSel = idx => dispatch({ type: 'ui', patch: { sel: idx } });
+  const setUi = patch => dispatch({ type: 'ui', patch });
+  const setTab = tab => setUi({ tab });
+  const setSel = idx => setUi({ sel: idx });
   const patchProject = (patch, transient = false) => dispatch({ type: 'project', patch, transient });
   const setParts = (fn, transient) => patchProject(p => {
     const next = fn(p.parts);
@@ -94,6 +97,21 @@ export default function App() {
     });
   };
 
+  // Edit a piece; by default keep its underside where it was (rotating or lengthening won't sink it)
+  const editPiece = (fn, keepBottom = true, clampGround = false) => {
+    if (sel < 0 || !isPiece(parts[sel])) return;
+    setParts(prev => {
+      const next = prev.slice();
+      const p = { ...next[sel] };
+      const bottom = pieceBottom(p);
+      fn(p);
+      let out = keepBottom ? restAt(p, bottom) : p;
+      if (clampGround || pieceBottom(out) < 0) out = restAt(out, Math.max(0, pieceBottom(out)));
+      next[sel] = out;
+      return next;
+    });
+  };
+
   const addPart = k => {
     const d = partByKey(k);
     const n = { k, x: ((parts.length * 3) % 9) - 4, z: 4, lvl: 0, mat: d.mat, rot: 0 };
@@ -103,10 +121,28 @@ export default function App() {
     say(`${d.n} added`);
   };
 
+  const addPiece = id => {
+    const st = stockById(id);
+    const p = newPiece(id);
+    p.cx = (((parts.length * 3) % 9) - 4) * 12;
+    setParts(prev => prev.concat([p]));
+    setSel(parts.length);
+    setTab('build');
+    if (ui.snap === 12 && (st.cat === 'masonry' || st.attach)) setUi({ snap: 1 });
+    say(`${st.n} added`);
+  };
+
   const duplicateSel = () => {
     if (sel < 0) return;
-    const copy = { ...parts[sel], x: parts[sel].x + 2 };
-    delete copy.fromPlan;
+    const src = parts[sel];
+    let copy;
+    if (isPiece(src)) {
+      const o = copyOffset(src);
+      copy = { ...src, cx: src.cx + o.x, cy: src.cy + o.y, cz: src.cz + o.z };
+    } else {
+      copy = { ...src, x: src.x + 2 };
+      delete copy.fromPlan;
+    }
     setParts(prev => prev.concat([copy]));
     setSel(parts.length);
   };
@@ -124,9 +160,22 @@ export default function App() {
     return next;
   }, true);
 
+  const movePiece = (idx, patch) => setParts(prev => {
+    if (!prev[idx]) return prev;
+    const next = prev.slice();
+    next[idx] = { ...next[idx], ...patch };
+    return next;
+  }, true);
+
+  const dropSel = () => {
+    if (sel < 0 || !isPiece(parts[sel])) return;
+    const top = supportUnder(parts, sel);
+    editPiece(p => { Object.assign(p, restAt(p, top)); }, false);
+  };
+
   const setYard = fn => patchProject(p => ({ ...p, yard: fn(p.yard) }));
   const setName = name => patchProject({ name });
-  const setBrush = patch => dispatch({ type: 'ui', patch: u => ({ ...u, brush: { ...u.brush, ...patch } }) });
+  const setBrush = patch => setUi(u => ({ ...u, brush: { ...u.brush, ...patch } }));
   const patchCells = (fn, transient) => patchProject(p => {
     const next = fn(p.cells);
     return next === p.cells ? p : { ...p, cells: next };
@@ -182,14 +231,33 @@ export default function App() {
       if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); dispatch({ type: e.shiftKey ? 'redo' : 'undo' }); return; }
       if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); dispatch({ type: 'redo' }); return; }
       if (ui.tab !== 'build' || sel < 0) return;
+      const p0 = parts[sel], piece = isPiece(p0), st = ui.snap;
+      const nudge = (dx, dz) => piece
+        ? editPiece(p => { p.cx += dx * st; p.cz += dz * st; }, false)
+        : mutSel(p => { p.x = +(p.x + dx * st / 12).toFixed(3); p.z = +(p.z + dz * st / 12).toFixed(3); });
       switch (e.key) {
-        case 'ArrowUp': mutSel(p => { p.z -= 1; }); break;
-        case 'ArrowDown': mutSel(p => { p.z += 1; }); break;
-        case 'ArrowLeft': mutSel(p => { p.x -= 1; }); break;
-        case 'ArrowRight': mutSel(p => { p.x += 1; }); break;
-        case '+': case '=': mutSel(p => { p.lvl = Math.min(12, p.lvl + 1); }); break;
-        case '-': case '_': mutSel(p => { p.lvl = Math.max(0, p.lvl - 1); }); break;
-        case 'r': case 'R': mutSel(p => { p.rot = ((p.rot || 0) + 1) % 4; }); break;
+        case 'ArrowUp': nudge(0, -1); break;
+        case 'ArrowDown': nudge(0, 1); break;
+        case 'ArrowLeft': nudge(-1, 0); break;
+        case 'ArrowRight': nudge(1, 0); break;
+        case 'PageUp': case '+': case '=':
+          if (piece) editPiece(p => { p.cy += st; }, false); else mutSel(p => { p.lvl = Math.min(12, p.lvl + 1); });
+          break;
+        case 'PageDown': case '-': case '_':
+          if (piece) editPiece(p => { p.cy -= st; }, false, true); else mutSel(p => { p.lvl = Math.max(0, p.lvl - 1); });
+          break;
+        case 'g': case 'G': dropSel(); break;
+        case 'r': case 'R':
+          if (piece) editPiece(p => { p.yaw = ((p.yaw || 0) + (e.shiftKey ? 15 : 90)) % 360; }); else mutSel(p => { p.rot = ((p.rot || 0) + 1) % 4; });
+          break;
+        case 't': case 'T':
+          if (piece) editPiece(p => { p.pitch = p.pitch === 0 ? 45 : p.pitch === 45 ? 90 : 0; }); break;
+        case 'e': case 'E':
+          if (piece) editPiece(p => { p.roll = p.roll ? 0 : 90; }); break;
+        case '[':
+          if (piece && !stockById(p0.stock).fixed) editPiece(p => { p.L = Math.max(1, p.L - (e.shiftKey ? 12 : 1)); }); break;
+        case ']':
+          if (piece && !stockById(p0.stock).fixed) editPiece(p => { p.L = Math.min(stockById(p.stock).maxL, p.L + (e.shiftKey ? 12 : 1)); }); break;
         case 'd': case 'D': duplicateSel(); break;
         case 'Delete': case 'Backspace': removeSel(); break;
         default: return;
@@ -216,7 +284,7 @@ export default function App() {
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div className="mono" style={{ color: 'var(--grey)' }}>Est.</div>
-                <div style={{ font: '600 22px/1.1 "Barlow Condensed",sans-serif', color: total > yard.budget ? 'var(--ink)' : undefined }}>${total}</div>
+                <div style={{ font: '600 22px/1.1 "Barlow Condensed",sans-serif' }}>${total}</div>
               </div>
             </div>
           </header>
@@ -233,29 +301,36 @@ export default function App() {
                 cells={cells} brush={ui.brush} setBrush={setBrush} patchCells={patchCells}
                 mark={() => dispatch({ type: 'mark' })} commit={() => dispatch({ type: 'commit' })}
                 yard={yard} onConvert={convertPlan} onClear={clearPlan}
-                render={ui.render} setRender={setRender}
+                render={ui.render} setRender={r => setUi({ render: r })}
               />
             )}
             {ui.tab === 'build' && (
               <BuildScreen
                 parts={parts} sel={sel} yard={yard} maxLvl={maxLvl}
-                marks={ui.marks} setMarks={m => dispatch({ type: 'ui', patch: { marks: m } })}
-                render={ui.render} setRender={setRender} camera={ui.camera} setCamera={setCamera}
-                setSel={setSel} mutSel={mutSel} addPart={addPart} removeSel={removeSel} duplicateSel={duplicateSel}
-                moveSel={moveSel}
+                marks={ui.marks} setMarks={m => setUi({ marks: m })}
+                render={ui.render} setRender={r => setUi({ render: r })}
+                camera={ui.camera} setCamera={c => setUi({ camera: c })}
+                snap={ui.snap} setSnap={v => setUi({ snap: v })}
+                setSel={setSel} mutSel={mutSel} editPiece={editPiece}
+                addPart={addPart} addPiece={addPiece} removeSel={removeSel} duplicateSel={duplicateSel} dropSel={dropSel}
+                moveSel={moveSel} movePiece={movePiece}
                 onDragStart={() => dispatch({ type: 'mark' })} onDragEnd={() => dispatch({ type: 'commit' })}
               />
             )}
             {ui.tab === 'parts' && (
-              <PartsScreen filter={ui.filter} setFilter={f => dispatch({ type: 'ui', patch: { filter: f } })} addPart={addPart} />
+              <PartsScreen
+                filter={ui.filter} setFilter={f => setUi({ filter: f })}
+                catalog={ui.catalog} setCatalog={c => setUi({ catalog: c })}
+                addPart={addPart} addPiece={addPiece}
+              />
             )}
             {ui.tab === 'list' && (
-              <ListScreen checks={checks} cuts={cuts} total={total} budget={yard.budget} onShare={share} onPrint={exportSheet} hasParts={parts.length > 0} />
+              <ListScreen checks={checks} cuts={cuts} buys={buys} total={total} budget={yard.budget} onShare={share} onPrint={exportSheet} hasParts={parts.length > 0} />
             )}
             {ui.tab === 'sheet' && (
               <SheetScreen
                 project={project} cuts={cuts} checks={checks} total={total}
-                specTab={ui.specTab} setSpecTab={t => dispatch({ type: 'ui', patch: { specTab: t } })}
+                specTab={ui.specTab} setSpecTab={t => setUi({ specTab: t })}
                 onExport={exportSheet}
               />
             )}
@@ -265,7 +340,7 @@ export default function App() {
           <TabBar tab={ui.tab} onPick={setTab} />
         </div>
       </div>
-      <PrintSheet project={project} snapshot={shot} cuts={cuts} checks={checks} total={total} />
+      <PrintSheet project={project} snapshot={shot} cuts={cuts} buys={buys} checks={checks} total={total} />
     </>
   );
 }

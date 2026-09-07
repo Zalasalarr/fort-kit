@@ -1,16 +1,166 @@
-import { MATS, MASS_CUTS, MASS_COST_PER_FT, FOOTPRINT, CELL_FT, PLAN_N, partByKey } from './data.js';
+import { Box3, Euler, Matrix4, Vector3 } from 'three';
+import { MATS, MASS_CUTS, MASS_COST_PER_FT, FOOTPRINT, CELL_FT, PLAN_N, partByKey, stockById } from './data.js';
+
+const rad = d => (d * Math.PI) / 180;
+
+/* ---------- formatting ---------- */
+
+export function fmtIn(inches) {
+  const v = Math.round(inches * 8) / 8;
+  const ft = Math.floor(v / 12), rem = +(v - ft * 12).toFixed(3);
+  const r = Number.isInteger(rem) ? String(rem) : String(rem).replace(/^0/, '');
+  return ft > 0 ? `${ft}' ${r}"` : `${r}"`;
+}
+
+export function money(v) {
+  return v < 20 && !Number.isInteger(v) ? v.toFixed(2) : String(Math.round(v));
+}
+
+/* ---------- pieces ---------- */
+
+export function isPiece(p) {
+  return p.k === 'piece';
+}
+
+export function pieceDims(p) {
+  const s = stockById(p.stock);
+  return { L: p.L ?? s.L, T: s.T, W: p.W ?? s.W };
+}
+
+export function pieceMatrix(p) {
+  const m = new Matrix4().makeRotationFromEuler(new Euler(rad(p.roll || 0), rad(p.yaw || 0), rad(p.pitch || 0), 'YZX'));
+  m.setPosition(p.cx, p.cy, p.cz);
+  return m;
+}
+
+// World-space box of a piece, in inches
+export function pieceAABB(p) {
+  const { L, T, W } = pieceDims(p);
+  const m = pieceMatrix(p);
+  const box = new Box3();
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) {
+    box.expandByPoint(new Vector3(sx * L / 2, sy * T / 2, sz * W / 2).applyMatrix4(m));
+  }
+  return box;
+}
+
+// Overall height of each assembly above its base level, in feet
+const ASSEMBLY_H = { platform: .35, rail: 3, ladder: 6, wall: 4, climb: 6, net: 6, monkey: 7, roof: .18, pad: .9, post: 6 };
+
+// World-space box of any part, in feet
+export function partAABB(p) {
+  if (isPiece(p)) {
+    const b = pieceAABB(p);
+    return new Box3(b.min.divideScalar(12), b.max.divideScalar(12));
+  }
+  let [hx, hz] = FOOTPRINT[p.k];
+  if ((p.rot || 0) % 2) [hx, hz] = [hz, hx];
+  const base = p.k === 'platform' && p.lvl > 0 ? 0 : p.lvl;
+  const top = p.lvl + (p.k === 'mass' ? p.h : ASSEMBLY_H[p.k] || 1);
+  return new Box3(new Vector3(p.x - hx, base, p.z - hz), new Vector3(p.x + hx, top, p.z + hz));
+}
+
+export function newPiece(stockId) {
+  const s = stockById(stockId);
+  const p = { k: 'piece', stock: s.id, mat: s.mat, L: s.L, W: s.W, cx: 0, cy: 0, cz: 48, yaw: 0, pitch: s.upright ? 90 : 0, roll: 0 };
+  return restAt(p, 0);
+}
+
+// Move a piece vertically so its lowest point sits at `bottom` (inches)
+export function restAt(p, bottom) {
+  const b = pieceAABB(p);
+  return { ...p, cy: p.cy + (bottom - b.min.y) };
+}
+
+export function pieceBottom(p) {
+  return pieceAABB(p).min.y;
+}
+
+// Highest surface (inches) under a piece's footprint among the other parts, or the ground
+export function supportUnder(parts, idx) {
+  const me = pieceAABB(parts[idx]);
+  const inset = .25;
+  let top = 0;
+  parts.forEach((q, i) => {
+    if (i === idx) return;
+    const b = partAABB(q);
+    const minX = b.min.x * 12, maxX = b.max.x * 12, minZ = b.min.z * 12, maxZ = b.max.z * 12;
+    if (me.max.x - inset > minX && me.min.x + inset < maxX && me.max.z - inset > minZ && me.min.z + inset < maxZ) {
+      top = Math.max(top, b.max.y * 12);
+    }
+  });
+  return top;
+}
+
+// Offset a copy so it lands beside the original: end-to-end for masonry/holds, side-by-side for boards
+export function copyOffset(p) {
+  const s = stockById(p.stock), { L, W } = pieceDims(p);
+  const local = s.cat === 'masonry' || s.attach ? new Vector3(L, 0, 0) : new Vector3(0, 0, W);
+  const m = new Matrix4().makeRotationFromEuler(new Euler(rad(p.roll || 0), rad(p.yaw || 0), rad(p.pitch || 0), 'YZX'));
+  return local.applyMatrix4(m);
+}
+
+/* ---------- names & labels ---------- */
+
+export function partName(p) {
+  if (isPiece(p)) {
+    const s = stockById(p.stock), { L, W } = pieceDims(p);
+    if (s.unit === 'each') return s.n;
+    if (s.unit === 'sheet') return `${s.n} · ${W}×${L} in`;
+    return `${s.n} · ${fmtIn(L)}`;
+  }
+  return p.k === 'mass' ? `Mass block ${p.h} ft` : partByKey(p.k).n;
+}
+
+export function partSize(p) {
+  if (isPiece(p)) {
+    const { L, T, W } = pieceDims(p);
+    return `${T} × ${W} in · ${fmtIn(L)}`;
+  }
+  return p.k === 'mass' ? `2×2 ft · ${p.h} ft high` : partByKey(p.k).s;
+}
+
+export function heightLabel(p) {
+  if (isPiece(p)) {
+    const b = pieceBottom(p);
+    return b < .5 ? 'ground' : fmtIn(b);
+  }
+  return p.lvl ? p.lvl + ' ft' : 'ground';
+}
+
+export function positionLabel(p) {
+  return isPiece(p) ? `${fmtIn(p.cx)}, ${fmtIn(p.cz)}` : `${p.x},${p.z}`;
+}
+
+export function annotation(p) {
+  return `${partName(p)} · ${heightLabel(p)} · ${MATS[p.mat].n}`;
+}
+
+/* ---------- cost & cuts ---------- */
 
 export function costOf(p) {
+  if (isPiece(p)) {
+    const s = stockById(p.stock), { L, W } = pieceDims(p);
+    if (s.unit === 'each') return s.price;
+    if (s.unit === 'sheet') return s.price * (W * L) / (48 * 96);
+    return s.price * L / 12;
+  }
   if (p.k === 'mass') return Math.round(MASS_COST_PER_FT * p.h * MATS[p.mat].rate);
   const def = partByKey(p.k);
   return Math.round(def.cost * MATS[p.mat].rate / MATS[def.mat].rate);
 }
 
 export function cost(parts) {
-  return parts.reduce((t, p) => t + costOf(p), 0);
+  return Math.round(parts.reduce((t, p) => t + costOf(p), 0));
 }
 
 export function cutsFor(p) {
+  if (isPiece(p)) {
+    const s = stockById(p.stock), { L, W } = pieceDims(p);
+    if (s.unit === 'each') return [[s.n, 1]];
+    if (s.unit === 'sheet') return [[`${s.n}, ${W}×${L} in`, 1]];
+    return [[`${s.n}, ${fmtIn(L)}`, 1]];
+  }
   return p.k === 'mass' ? MASS_CUTS[p.mat](p.h) : partByKey(p.k).cuts;
 }
 
@@ -22,22 +172,45 @@ export function cutList(parts) {
   return Object.keys(cutMap).map(label => ({ label, qty: cutMap[label] }));
 }
 
-export function partName(p) {
-  return p.k === 'mass' ? `Mass block ${p.h} ft` : partByKey(p.k).n;
+// How much stock to buy for the cut-to-length pieces: first-fit-decreasing into stock lengths
+export function buyList(parts) {
+  const byStock = {};
+  parts.filter(isPiece).forEach(p => {
+    const s = stockById(p.stock);
+    if (s.unit === 'ft') (byStock[s.id] = byStock[s.id] || []).push(pieceDims(p).L);
+    if (s.unit === 'sheet') (byStock[s.id] = byStock[s.id] || []).push(pieceDims(p).W * pieceDims(p).L);
+  });
+  return Object.keys(byStock).map(id => {
+    const s = stockById(id);
+    if (s.unit === 'sheet') {
+      const sheets = Math.ceil(byStock[id].reduce((a, b) => a + b, 0) / (48 * 96) * 1.1);
+      return { label: s.n, lines: [`${sheets} sheet${sheets > 1 ? 's' : ''} of 4×8`], waste: null };
+    }
+    const lengths = byStock[id].slice().sort((a, b) => b - a);
+    const base = s.lengths[0];
+    const bins = [];
+    lengths.forEach(len => {
+      const bin = bins.find(b => b.left >= len + .25);
+      if (bin) { bin.left -= len + .25; return; }
+      const stockLen = s.lengths.find(l => l >= len) || s.lengths[s.lengths.length - 1];
+      bins.push({ size: Math.max(base, stockLen), left: Math.max(base, stockLen) - len - .25 });
+    });
+    const counts = {};
+    bins.forEach(b => { counts[b.size] = (counts[b.size] || 0) + 1; });
+    const waste = bins.reduce((t, b) => t + Math.max(0, b.left), 0);
+    return {
+      label: s.n,
+      lines: Object.keys(counts).sort((a, b) => a - b).map(sz => `${counts[sz]} × ${sz / 12} ft`),
+      waste,
+    };
+  });
 }
 
-export function partSize(p) {
-  return p.k === 'mass' ? `2×2 ft · ${p.h} ft high` : partByKey(p.k).s;
-}
-
-export function annotation(p) {
-  return `${partName(p)} · ${p.lvl ? p.lvl + ' ft' : 'ground'} · ${MATS[p.mat].n}`;
-}
+/* ---------- yard & safety ---------- */
 
 export function footprint(p) {
-  let [hx, hz] = FOOTPRINT[p.k];
-  if ((p.rot || 0) % 2) [hx, hz] = [hz, hx];
-  return { minX: p.x - hx, maxX: p.x + hx, minZ: p.z - hz, maxZ: p.z + hz };
+  const b = partAABB(p);
+  return { minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z };
 }
 
 export function outsideYard(parts, yard) {
@@ -88,8 +261,13 @@ export function safetyChecks(parts, yard, total) {
     checks.push({ ok: false, t: `${outside.length} part${outside.length > 1 ? 's sit' : ' sits'} outside the ${yard.w}×${yard.d} ft yard.` });
   }
 
-  checks.push(parts.some(p => p.k === 'climb')
-    ? { ok: true, t: `Climbing panel holds set for ages ${yard.age} — spacing 9–14 in.` }
+  const floating = parts.filter((p, i) => isPiece(p) && pieceBottom(p) - supportUnder(parts, i) > 1);
+  if (floating.length) {
+    checks.push({ ok: false, t: `${floating.length} piece${floating.length > 1 ? 's are' : ' is'} floating with nothing underneath. Drop them onto a support or add framing.` });
+  }
+
+  checks.push(parts.some(p => p.k === 'climb' || (isPiece(p) && p.stock === 'hold'))
+    ? { ok: true, t: `Climbing holds set for ages ${yard.age} — keep spacing 9–14 in.` }
     : { ok: true, t: 'No climbing panel yet. Add one from Parts to get hold spacing checks.' });
 
   if (total > yard.budget) {

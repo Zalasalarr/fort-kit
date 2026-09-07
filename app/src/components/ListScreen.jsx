@@ -1,4 +1,6 @@
-export default function ListScreen({ checks, cuts, total, budget, onShare, onPrint, hasParts }) {
+import { fmtIn } from '../logic.js';
+
+export default function ListScreen({ checks, cuts, buys = [], total, budget, onShare, onPrint, hasParts }) {
   const barPct = Math.min(100, Math.round((total / budget) * 100));
   const over = total > budget;
 
@@ -26,6 +28,25 @@ export default function ListScreen({ checks, cuts, total, budget, onShare, onPri
           <div style={{ font: '500 12px "IBM Plex Mono",monospace', color: 'var(--ink-6)', whiteSpace: 'nowrap' }}>×{r.qty}</div>
         </div>
       ))}
+
+      {buys.length > 0 && (
+        <>
+          <div style={{ padding: '16px 16px 6px' }}>
+            <div className="mono" style={{ color: 'var(--steel)' }}>Stock to buy</div>
+            <div style={{ font: '500 10px "IBM Plex Mono",monospace', color: 'var(--ink-55)', marginTop: 4 }}>
+              Cut-to-length pieces packed onto stock lengths, ¼ in kerf allowed per cut.
+            </div>
+          </div>
+          {buys.map((b, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '7px 16px', borderBottom: '1px solid rgba(29,31,32,.09)' }}>
+              <div style={{ fontSize: 14 }}>{b.label}</div>
+              <div style={{ font: '500 12px "IBM Plex Mono",monospace', color: 'var(--ink-6)', textAlign: 'right' }}>
+                {b.lines.join(' · ')}{b.waste > 0 ? ` · ${fmtIn(b.waste)} offcut` : ''}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
 
       <div style={{ margin: 16, position: 'relative', border: '1px solid var(--line-2)', padding: '13px 16px' }}>
         <span className="tick tl" /><span className="tick tr" /><span className="tick bl" /><span className="tick br" />

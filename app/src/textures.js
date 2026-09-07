@@ -193,3 +193,6 @@ export function groundMaterial(type, w, d) {
   t.needsUpdate = true;
   return new THREE.MeshStandardMaterial({ map: t, roughness: .96, metalness: 0 });
 }
+
+// Single masonry pieces are too small for the brick tile; use flat tones per stock
+export const MASONRY_COLORS = { brick: '#9a4b3b', block: '#a4a29b', paver: '#aaa59c' };

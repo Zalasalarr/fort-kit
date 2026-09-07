@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { MATS } from './data.js';
-import { realMaterial, groundMaterial, holdColor } from './textures.js';
+import { MATS, stockById } from './data.js';
+import { pieceDims, isPiece } from './logic.js';
+import { realMaterial, groundMaterial, holdColor, MASONRY_COLORS } from './textures.js';
 
 export const VIEWS = {
   iso: { az: .78, el: .5 },
@@ -12,9 +13,11 @@ export const VIEWS = {
 const ZOOM_MIN = 4, ZOOM_MAX = 22;
 const BG = { blueprint: '#f2f2f3', real: '#e3ecf5' };
 const TARGET = new THREE.Vector3(0, 2.6, 0);
+const EDGE_TOL = 1.5 / 12;
+const rad = d => (d * Math.PI) / 180;
 
 export class BuildView {
-  constructor(canvas, { az = .78, el = .5, zoom = 9, pick = false, mode = 'blueprint', camera = 'iso' } = {}) {
+  constructor(canvas, { az = .78, el = .5, zoom = 9, pick = false, mode = 'blueprint', camera = 'iso', snap = 12 } = {}) {
     this.canvas = canvas;
     this.az = az;
     this.el = el;
@@ -22,11 +25,14 @@ export class BuildView {
     this.pick = pick;
     this.mode = mode;
     this.cameraKind = camera;
+    this.snap = snap;
     this.parts = [];
     this.sel = -1;
     this.bounds = [];
+    this.aabbs = [];
     this.onSelect = null;
     this.onMove = null;
+    this.onMovePiece = null;
     this.onDragStart = null;
     this.onDragEnd = null;
     this.afterDraw = null;
@@ -35,7 +41,6 @@ export class BuildView {
     this.ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, -300, 600);
     this.persp = new THREE.PerspectiveCamera(38, 1, .2, 600);
 
-    // Blueprint lighting: flat and even
     this.lightsBlueprint = new THREE.Group();
     this.lightsBlueprint.add(new THREE.HemisphereLight(0xffffff, 0x8fa2b5, 1.0));
     const bd = new THREE.DirectionalLight(0xffffff, .5);
@@ -43,7 +48,6 @@ export class BuildView {
     this.lightsBlueprint.add(bd);
     this.scene.add(this.lightsBlueprint);
 
-    // Real lighting: sky + warm sun with shadows
     this.lightsReal = new THREE.Group();
     this.lightsReal.add(new THREE.HemisphereLight(0xd8e7ff, 0x8f9a78, 1.15));
     this.sun = new THREE.DirectionalLight(0xfff2dc, 2.4);
@@ -105,6 +109,8 @@ export class BuildView {
     this.cameraKind = kind;
     this.resize(); this.orbit(); this.draw();
   }
+
+  setSnap(inches) { this.snap = inches; }
 
   /* ---------- camera ---------- */
 
@@ -230,7 +236,16 @@ export class BuildView {
         if (hit) {
           const part = this.parts[hit.idx];
           this._plane.constant = -hit.point.y;
-          this._drag = { idx: hit.idx, start: hit.point.clone(), ox: part.x, oz: part.z, moved: false };
+          if (isPiece(part)) {
+            const b = this.aabbs[hit.idx];
+            this._drag = {
+              idx: hit.idx, piece: true, moved: false,
+              hx: (b.max.x - b.min.x) / 2, hy: (b.max.y - b.min.y) / 2, hz: (b.max.z - b.min.z) / 2,
+              offX: part.cx / 12 - hit.point.x, offZ: part.cz / 12 - hit.point.z,
+            };
+          } else {
+            this._drag = { idx: hit.idx, start: hit.point.clone(), ox: part.x, oz: part.z, moved: false };
+          }
           if (this.onSelect) this.onSelect(hit.idx);
           return;
         }
@@ -249,15 +264,7 @@ export class BuildView {
         return;
       }
       if (this._drag) {
-        const p = this._planePoint(e);
-        if (!p) return;
-        const nx = Math.round(this._drag.ox + p.x - this._drag.start.x);
-        const nz = Math.round(this._drag.oz + p.z - this._drag.start.z);
-        const part = this.parts[this._drag.idx];
-        if (part && (nx !== part.x || nz !== part.z)) {
-          if (!this._drag.moved) { this._drag.moved = true; if (this.onDragStart) this.onDragStart(); }
-          if (this.onMove) this.onMove(this._drag.idx, nx, nz);
-        }
+        if (this._drag.piece) this._dragPiece(e); else this._dragAssembly(e);
         return;
       }
       if (!orbiting) return;
@@ -290,6 +297,103 @@ export class BuildView {
     canvas.addEventListener('wheel', this._onWheel, { passive: false });
   }
 
+  _started(d) {
+    if (!d.moved) { d.moved = true; if (this.onDragStart) this.onDragStart(); }
+  }
+
+  _dragAssembly(e) {
+    const d = this._drag, s = this.snap / 12;
+    const p = this._planePoint(e);
+    if (!p) return;
+    const nx = Math.round((d.ox + p.x - d.start.x) / s) * s;
+    const nz = Math.round((d.oz + p.z - d.start.z) / s) * s;
+    const part = this.parts[d.idx];
+    if (part && (nx !== part.x || nz !== part.z)) {
+      this._started(d);
+      if (this.onMove) this.onMove(d.idx, +nx.toFixed(4), +nz.toFixed(4));
+    }
+  }
+
+  _dragPiece(e) {
+    const d = this._drag, s = this.snap / 12;
+    const part = this.parts[d.idx];
+    if (!part) return;
+    const stock = stockById(part.stock);
+    const h = this._hitExcluding(e, d.idx);
+    let cx, cz, bottom = null, patch;
+
+    if (h && stock.attach && h.normal.y < .5) {
+      // Stick to the face: thickness axis along the face normal
+      const n = h.normal, T = stock.T / 12;
+      // Snap within the face plane only; keep the point exactly on the surface
+      const snapped = new THREE.Vector3(
+        Math.round(h.point.x / s) * s, Math.round(h.point.y / s) * s, Math.round(h.point.z / s) * s
+      );
+      const back = h.point.clone().sub(snapped).dot(n);
+      const px = snapped.x + n.x * back, py = snapped.y + n.y * back, pz = snapped.z + n.z * back;
+      patch = {
+        cx: (px + n.x * T / 2) * 12, cy: (py + n.y * T / 2) * 12, cz: (pz + n.z * T / 2) * 12,
+        roll: 90, pitch: 0, yaw: Math.round((Math.atan2(n.x, n.z) * 180 / Math.PI) / 15) * 15,
+      };
+    } else {
+      if (h && h.normal.y > .7) {
+        cx = h.point.x + d.offX; cz = h.point.z + d.offZ; bottom = h.point.y;
+      } else {
+        const p = h ? h.point : this._planePoint(e);
+        if (!p) return;
+        cx = p.x + d.offX; cz = p.z + d.offZ;
+      }
+      cx = Math.round((cx - d.hx) / s) * s + d.hx;
+      cz = Math.round((cz - d.hz) / s) * s + d.hz;
+      [cx, cz] = this._edgeSnap(d.idx, cx, cz, d.hx, d.hz);
+      if (bottom === null) bottom = this._supportTop(d.idx, cx - d.hx, cx + d.hx, cz - d.hz, cz + d.hz);
+      patch = { cx: cx * 12, cy: (bottom + d.hy) * 12, cz: cz * 12 };
+    }
+
+    const changed = Object.keys(patch).some(k => Math.abs((part[k] || 0) - patch[k]) > .01);
+    if (!changed) return;
+    this._started(d);
+    if (this.onMovePiece) this.onMovePiece(d.idx, patch);
+  }
+
+  _supportTop(idx, minX, maxX, minZ, maxZ) {
+    let top = 0;
+    const inset = .02;
+    this.aabbs.forEach((b, i) => {
+      if (i === idx || !b) return;
+      if (maxX - inset > b.min.x && minX + inset < b.max.x && maxZ - inset > b.min.z && minZ + inset < b.max.z) {
+        top = Math.max(top, b.max.y);
+      }
+    });
+    return top;
+  }
+
+  _edgeSnap(idx, cx, cz, hx, hz) {
+    let bestX = null, bestZ = null;
+    this.aabbs.forEach((b, i) => {
+      if (i === idx || !b) return;
+      const nearZ = cz + hz > b.min.z - 2 && cz - hz < b.max.z + 2;
+      const nearX = cx + hx > b.min.x - 2 && cx - hx < b.max.x + 2;
+      if (nearZ) {
+        for (const edge of [b.min.x, b.max.x]) {
+          for (const mine of [cx - hx, cx + hx]) {
+            const delta = edge - mine;
+            if (Math.abs(delta) < EDGE_TOL && (bestX === null || Math.abs(delta) < Math.abs(bestX))) bestX = delta;
+          }
+        }
+      }
+      if (nearX) {
+        for (const edge of [b.min.z, b.max.z]) {
+          for (const mine of [cz - hz, cz + hz]) {
+            const delta = edge - mine;
+            if (Math.abs(delta) < EDGE_TOL && (bestZ === null || Math.abs(delta) < Math.abs(bestZ))) bestZ = delta;
+          }
+        }
+      }
+    });
+    return [cx + (bestX || 0), cz + (bestZ || 0)];
+  }
+
   _ndc(e) {
     const r = this.canvas.getBoundingClientRect();
     return new THREE.Vector2(
@@ -298,13 +402,30 @@ export class BuildView {
     );
   }
 
+  _partIndex(o) {
+    while (o && o.userData.idx === undefined) o = o.parent;
+    return o ? o.userData.idx : undefined;
+  }
+
   _hit(e) {
     this._raycaster.setFromCamera(this._ndc(e), this.cam);
     const hits = this._raycaster.intersectObjects(this.group.children, true);
     for (const h of hits) {
-      let o = h.object;
-      while (o && o.userData.idx === undefined) o = o.parent;
-      if (o) return { idx: o.userData.idx, point: h.point };
+      const idx = this._partIndex(h.object);
+      if (idx !== undefined) return { idx, point: h.point };
+    }
+    return null;
+  }
+
+  _hitExcluding(e, skip) {
+    this._raycaster.setFromCamera(this._ndc(e), this.cam);
+    const hits = this._raycaster.intersectObjects(this.group.children, true);
+    for (const h of hits) {
+      if (!h.face) continue;
+      const idx = this._partIndex(h.object);
+      if (idx === undefined || idx === skip) continue;
+      const normal = h.face.normal.clone().transformDirection(h.object.matrixWorld);
+      return { idx, point: h.point, normal };
     }
     return null;
   }
@@ -337,7 +458,23 @@ export class BuildView {
     }
   }
 
-  buildPart(p) {
+  buildPiece(p, i) {
+    const g = new THREE.Group();
+    const s = stockById(p.stock);
+    const { L, T, W } = pieceDims(p);
+    let opts = {};
+    if (this.real) {
+      if (s.cat === 'masonry') opts = { color: MASONRY_COLORS[s.id] };
+      else if (s.attach) opts = { color: holdColor(i) };
+    }
+    this.box(g, p.mat, L / 12, T / 12, W / 12, 0, -T / 24, 0, opts);
+    g.position.set(p.cx / 12, p.cy / 12, p.cz / 12);
+    g.rotation.set(rad(p.roll || 0), rad(p.yaw || 0), rad(p.pitch || 0), 'YZX');
+    return g;
+  }
+
+  buildPart(p, i) {
+    if (isPiece(p)) return this.buildPiece(p, i);
     const g = new THREE.Group(), m = p.mat, y = p.lvl;
     const B = (w, h, d, x, yy, z) => this.box(g, m, w, h, d, x, yy, z);
     if (p.k === 'platform') {
@@ -348,24 +485,23 @@ export class BuildView {
       B(4, .2, .2, 0, y + 2.7, 0); B(4, .15, .15, 0, y + 1.4, 0);
     } else if (p.k === 'ladder') {
       B(.25, 6, .25, -.8, y, 0); B(.25, 6, .25, .8, y, 0);
-      for (let i = 1; i <= 5; i++) B(1.6, .16, .16, 0, y + i, 0);
+      for (let k = 1; k <= 5; k++) B(1.6, .16, .16, 0, y + k, 0);
     } else if (p.k === 'wall') {
       B(4, 4, .3, 0, y, 0);
     } else if (p.k === 'climb') {
-      // The panel itself is plywood in the real view; the blueprint keeps the design's holds tone
       const panelMat = m === 'holds' ? (this.real ? 'wood' : 'holds') : m;
       this.box(g, panelMat, 4, 6, .4, 0, y, 0);
       const hs = [[-1.3, .9], [.4, 1.4], [1.4, 2.4], [-.6, 2.2], [1.1, 3.5], [-1.5, 3.9], [.2, 4.6], [1.5, 5.2], [-1, 5.3], [.9, .6], [-1.7, 2.9], [.6, 3]];
-      hs.forEach((h, i) => this.box(g, 'holds', .38, .34, .34, h[0], y + h[1], .34, this.real ? { color: holdColor(i) } : {}));
+      hs.forEach((h, k) => this.box(g, 'holds', .38, .34, .34, h[0], y + h[1], .34, this.real ? { color: holdColor(k) } : {}));
     } else if (p.k === 'net') {
       B(.25, 6, .25, -2, y, 0); B(.25, 6, .25, 2, y, 0);
       B(4, .2, .2, 0, y + 5.8, 0);
       if (this.real) {
-        for (let i = 0; i <= 8; i++) B(.06, 5.6, .06, -2 + i * .5, y + .2, 0);
+        for (let k = 0; k <= 8; k++) B(.06, 5.6, .06, -2 + k * .5, y + .2, 0);
         for (let j = 0; j <= 8; j++) B(4, .06, .06, 0, y + .2 + j * .7, 0);
       } else {
         const pts = [];
-        for (let i = 0; i <= 8; i++) { const x = -2 + i * .5; pts.push(new THREE.Vector3(x, y + .2, 0), new THREE.Vector3(x, y + 5.8, 0)); }
+        for (let k = 0; k <= 8; k++) { const x = -2 + k * .5; pts.push(new THREE.Vector3(x, y + .2, 0), new THREE.Vector3(x, y + 5.8, 0)); }
         for (let j = 0; j <= 8; j++) { const yy = y + .2 + j * .7; pts.push(new THREE.Vector3(-2, yy, 0), new THREE.Vector3(2, yy, 0)); }
         const lg = new THREE.BufferGeometry().setFromPoints(pts);
         g.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x5d5d60 })));
@@ -373,7 +509,7 @@ export class BuildView {
     } else if (p.k === 'monkey') {
       B(.3, 7, .3, -3, y, 0); B(.3, 7, .3, 3, y, 0);
       B(6, .3, .3, 0, y + 6.7, 0);
-      for (let i = -2; i <= 2; i++) B(.24, .24, 2, i * 1.2, y + 6.7, 0);
+      for (let k = -2; k <= 2; k++) B(.24, .24, 2, k * 1.2, y + 6.7, 0);
     } else if (p.k === 'roof') {
       B(5, .18, 5, 0, y, 0);
       B(.2, .8, 5, -2.4, y - .8, 0); B(.2, .8, 5, 2.4, y - .8, 0);
@@ -393,17 +529,20 @@ export class BuildView {
     this.parts = parts;
     this.sel = selIdx;
     this.bounds = [];
+    this.aabbs = [];
     this.group.clear();
     parts.forEach((p, i) => {
-      const g = this.buildPart(p);
+      const g = this.buildPart(p, i);
       g.userData.idx = i;
       this.group.add(g);
+      g.updateMatrixWorld(true);
       const bb = new THREE.Box3().setFromObject(g);
       if (!bb.isEmpty()) {
         const c = bb.getCenter(new THREE.Vector3());
         this.bounds[i] = { x: c.x, z: c.z, top: bb.max.y };
+        this.aabbs[i] = bb;
         if (i === selIdx) {
-          this.group.add(new THREE.Box3Helper(bb.expandByScalar(.16), new THREE.Color('#5980a6')));
+          this.group.add(new THREE.Box3Helper(bb.clone().expandByScalar(.1), new THREE.Color('#5980a6')));
         }
       }
     });
