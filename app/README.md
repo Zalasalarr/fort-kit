@@ -2,7 +2,7 @@
 
 A 3D sketchpad for things you build in the backyard — forts, climbing walls, monkey bars — in wood, brick, metal, rope and climbing holds. Sketch on a 1 ft grid, get a cut list, a cost against your budget, a safety read, and a printable drawing sheet.
 
-It's a browser app: no install required, no account, no server. Your build autosaves on the device you're using.
+It's a browser app: no install required, no account, no server. Your builds autosave on the device you're using, and you can keep as many projects as you like — tap **Projects** in the header to open, copy, delete, or start a new one.
 
 ## Run it
 
@@ -30,7 +30,7 @@ This prints a "Network" URL like `http://192.168.1.23:4173`. Open it in the tabl
 
 Once installed it keeps working offline for whatever it has already loaded; fonts fall back to system fonts when offline.
 
-Builds don't sync between devices automatically — use **List → Share 3D link** to move a build from one device to another (the whole build is encoded in the link).
+Builds don't sync between devices automatically — use **List → Share 3D link** to move a build from one device to another (the whole build is encoded in the link; opening it creates a new project on that device).
 
 ## The tabs
 

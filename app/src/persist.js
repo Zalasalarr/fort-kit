@@ -75,3 +75,68 @@ export function loadFromHash() {
     return null;
   }
 }
+
+/* ---------- multiple projects ---------- */
+
+const INDEX_KEY = 'fortkit.index';
+const PKEY = id => 'fortkit.p.' + id;
+
+export const newProjectId = () => 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+export function loadIndex() {
+  try {
+    const idx = JSON.parse(localStorage.getItem(INDEX_KEY));
+    if (idx && Array.isArray(idx.items)) return idx;
+  } catch {
+    // fall through
+  }
+  return { current: null, items: [] };
+}
+
+export function saveIndex(idx) {
+  try {
+    localStorage.setItem(INDEX_KEY, JSON.stringify(idx));
+  } catch {
+    // ignore
+  }
+}
+
+export function loadProject(id) {
+  try {
+    return normalize(JSON.parse(localStorage.getItem(PKEY(id))));
+  } catch {
+    return null;
+  }
+}
+
+export function saveProject(id, project) {
+  try {
+    localStorage.setItem(PKEY(id), JSON.stringify(project));
+  } catch {
+    // storage full or unavailable
+  }
+}
+
+export function removeProject(id) {
+  try {
+    localStorage.removeItem(PKEY(id));
+  } catch {
+    // ignore
+  }
+}
+
+// The index, migrating a single pre-multi-project save into the first entry
+export function loadWorkspace() {
+  let idx = loadIndex();
+  if (!idx.items.length) {
+    const old = loadSaved();
+    if (old) {
+      const id = newProjectId();
+      saveProject(id, old);
+      idx = { current: id, items: [{ id, name: old.name, updated: Date.now(), parts: old.parts.length }] };
+      saveIndex(idx);
+      try { localStorage.removeItem(KEY); } catch { /* ignore */ }
+    }
+  }
+  return idx;
+}

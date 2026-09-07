@@ -8,7 +8,7 @@ import {
 } from './logic.js';
 import { generate, transformGroup, explode, defaultParams, newGroupId, TOOLS } from './generators.js';
 import { reducer, initState } from './store.js';
-import { loadSaved, save, shareUrl, loadFromHash, loadPrefs, savePrefs } from './persist.js';
+import { shareUrl, loadFromHash, loadPrefs, savePrefs, loadWorkspace, loadProject, saveProject, saveIndex, removeProject, newProjectId } from './persist.js';
 import { snapshot } from './BuildView.js';
 import TabBar from './components/TabBar.jsx';
 import YardScreen from './components/YardScreen.jsx';
@@ -18,6 +18,7 @@ import PartsScreen from './components/PartsScreen.jsx';
 import ListScreen from './components/ListScreen.jsx';
 import SheetScreen from './components/SheetScreen.jsx';
 import PrintSheet from './components/PrintSheet.jsx';
+import ProjectsPanel from './components/ProjectsPanel.jsx';
 
 function EditableName({ value, onChange }) {
   const [editing, setEditing] = useState(false);
@@ -42,13 +43,38 @@ function EditableName({ value, onChange }) {
   );
 }
 
+const entry = (id, project) => ({ id, name: project.name, updated: Date.now(), parts: project.parts.length, cost: cost(project.parts) });
+
+// Pick the project to open on load: a shared link becomes a new project, otherwise the last one open
+function bootstrap() {
+  let ws = loadWorkspace();
+  const fromHash = loadFromHash();
+  if (fromHash) {
+    const id = newProjectId();
+    saveProject(id, fromHash);
+    ws = { current: id, items: [entry(id, fromHash), ...ws.items] };
+    saveIndex(ws);
+    return { ws, project: fromHash, tab: 'build' };
+  }
+  const openId = ws.current && ws.items.some(i => i.id === ws.current) ? ws.current : (ws.items[0] && ws.items[0].id);
+  const existing = openId ? loadProject(openId) : null;
+  if (existing) {
+    if (ws.current !== openId) { ws = { ...ws, current: openId }; saveIndex(ws); }
+    return { ws, project: existing, tab: 'build' };
+  }
+  const id = newProjectId();
+  saveProject(id, SAMPLE_PROJECT);
+  ws = { current: id, items: [entry(id, SAMPLE_PROJECT)] };
+  saveIndex(ws);
+  return { ws, project: SAMPLE_PROJECT, tab: 'yard' };
+}
+
 export default function App() {
-  const [s, dispatch] = useReducer(reducer, null, () => {
-    const fromHash = loadFromHash();
-    const saved = loadSaved();
-    const project = fromHash || saved || SAMPLE_PROJECT;
-    return initState(project, fromHash || saved ? 'build' : 'yard', loadPrefs());
-  });
+  const boot = useRef(null);
+  if (!boot.current) boot.current = bootstrap();
+  const [ws, setWs] = useState(boot.current.ws);
+  const [showProjects, setShowProjects] = useState(false);
+  const [s, dispatch] = useReducer(reducer, null, () => initState(boot.current.project, boot.current.tab, loadPrefs()));
   const { project, ui } = s;
   const { parts, yard, cells } = project;
   const sel = parts.length ? Math.min(ui.sel, parts.length - 1) : -1;
@@ -69,16 +95,111 @@ export default function App() {
 
   const [shot, setShot] = useState(null);
 
+  const wsRef = useRef(ws);
+  wsRef.current = ws;
+  const persist = () => {
+    const id = wsRef.current.current;
+    if (!id) return;
+    saveProject(id, project);
+    setWs(w => {
+      const items = w.items.map(it => (it.id === id ? { ...it, ...entry(id, project) } : it));
+      const next = { ...w, items };
+      saveIndex(next);
+      return next;
+    });
+  };
   useEffect(() => {
-    const t = setTimeout(() => save(project), 300);
-    const flush = () => save(project);
-    window.addEventListener('pagehide', flush);
-    return () => { clearTimeout(t); window.removeEventListener('pagehide', flush); };
+    const t = setTimeout(persist, 300);
+    window.addEventListener('pagehide', persist);
+    return () => { clearTimeout(t); window.removeEventListener('pagehide', persist); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project]);
+
+  /* ---------- projects ---------- */
+  const switchTo = (id, proj, tab = 'build') => {
+    dispatch({ type: 'load', project: proj });
+    setWs(w => { const next = { ...w, current: id }; saveIndex(next); return next; });
+    setUi({ tab, sel: 0, tool: null });
+    setShowProjects(false);
+  };
+  const openProject = id => {
+    if (id === ws.current) { setShowProjects(false); return; }
+    saveProject(ws.current, project);
+    const proj = loadProject(id);
+    if (!proj) { say('That project could not be read'); return; }
+    switchTo(id, proj);
+    say(`Opened ${proj.name}`);
+  };
+  const createProject = proj => {
+    saveProject(ws.current, project);
+    const id = newProjectId();
+    saveProject(id, proj);
+    setWs(w => { const next = { current: id, items: [entry(id, proj), ...w.items] }; saveIndex(next); return next; });
+    dispatch({ type: 'load', project: proj });
+    setShowProjects(false);
+    return id;
+  };
+  const newProject = () => {
+    const n = ws.items.length + 1;
+    createProject({ ...emptyProject(yard), name: `Untitled build ${n}` });
+    setUi({ tab: 'yard', sel: 0, tool: null });
+    say('New project — set up the yard first');
+  };
+  const newFromSample = () => {
+    createProject({ ...SAMPLE_PROJECT, name: `Corner fort + climb wall ${ws.items.length + 1}` });
+    setUi({ tab: 'build', sel: 0, tool: null });
+    say('Sample fort loaded as a new project');
+  };
+  const copyProject = id => {
+    const src = id === ws.current ? project : loadProject(id);
+    if (!src) return;
+    createProject({ ...src, name: `${src.name} copy` });
+    setUi({ tab: 'build', sel: 0, tool: null });
+    say(`Copied ${src.name}`);
+  };
+  const deleteProject = id => {
+    removeProject(id);
+    const remaining = ws.items.filter(it => it.id !== id);
+    if (id !== ws.current) {
+      setWs(w => { const next = { ...w, items: remaining }; saveIndex(next); return next; });
+      return;
+    }
+    const nextItem = remaining.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0))[0];
+    const nextProj = nextItem && loadProject(nextItem.id);
+    if (nextProj) {
+      dispatch({ type: 'load', project: nextProj });
+      setWs({ current: nextItem.id, items: remaining });
+      saveIndex({ current: nextItem.id, items: remaining });
+      setUi({ tab: 'build', sel: 0, tool: null });
+    } else {
+      const proj = { ...emptyProject(yard), name: 'Untitled build' };
+      const nid = newProjectId();
+      saveProject(nid, proj);
+      const next = { current: nid, items: [entry(nid, proj)] };
+      setWs(next); saveIndex(next);
+      dispatch({ type: 'load', project: proj });
+      setUi({ tab: 'yard', sel: 0, tool: null });
+    }
+    setShowProjects(false);
+    say('Project deleted');
+  };
 
   useEffect(() => {
     savePrefs({ render: ui.render, camera: ui.camera, snap: ui.snap });
   }, [ui.render, ui.camera, ui.snap]);
+
+  // A share link pasted into the running app is imported as a new project
+  useEffect(() => {
+    const onHash = () => {
+      const shared = loadFromHash();
+      if (!shared) return;
+      createProject(shared);
+      setUi({ tab: 'build', sel: 0, tool: null });
+      say(`Imported ${shared.name} as a new project`);
+    };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  });
 
   /* ---------- actions ---------- */
   const setUi = patch => dispatch({ type: 'ui', patch });
@@ -329,6 +450,7 @@ export default function App() {
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); dispatch({ type: e.shiftKey ? 'redo' : 'undo' }); return; }
       if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); dispatch({ type: 'redo' }); return; }
+      if (showProjects) return;
       if (e.key === 'Escape' && ui.tool) { setTool(null); return; }
       if (ui.tab !== 'build' || sel < 0) return;
       const p0 = parts[sel], piece = isPiece(p0), st = ui.snap;
@@ -380,7 +502,9 @@ export default function App() {
         <div className="frame">
           <header className="head">
             <div className="head-l">
-              <div className="mono" style={{ color: 'var(--steel)' }}>Project 001</div>
+              <div className="mono projects-btn" onClick={() => setShowProjects(true)} title="All projects">
+                Projects ▾ · {Math.max(1, ws.items.findIndex(it => it.id === ws.current) + 1)} of {ws.items.length}
+              </div>
               <EditableName value={project.name} onChange={setName} />
             </div>
             <div className="head-r">
@@ -400,6 +524,7 @@ export default function App() {
               <YardScreen
                 yard={yard} setYard={setYard} hasParts={parts.length > 0}
                 onOpenBuild={() => setTab('build')} onLoadSample={loadSample} onClearBuild={clearBuild}
+                onProjects={() => setShowProjects(true)}
               />
             )}
             {ui.tab === 'plan' && (
@@ -446,6 +571,13 @@ export default function App() {
           </div>
 
           {toast && <div key={toast.id} className="toast">{toast.msg}</div>}
+          {showProjects && (
+            <ProjectsPanel
+              items={ws.items} currentId={ws.current}
+              onOpen={openProject} onNew={newProject} onNewSample={newFromSample} onCopy={copyProject} onDelete={deleteProject}
+              onClose={() => setShowProjects(false)}
+            />
+          )}
           <TabBar tab={ui.tab} onPick={setTab} />
         </div>
       </div>

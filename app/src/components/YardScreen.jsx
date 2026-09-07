@@ -1,7 +1,7 @@
 const GROUNDS = ['Grass', 'Mulch', 'Patio'];
 const AGES = ['2–4', '5–9', '10+'];
 
-export default function YardScreen({ yard, setYard, onOpenBuild, onLoadSample, onClearBuild, hasParts }) {
+export default function YardScreen({ yard, setYard, onOpenBuild, onLoadSample, onClearBuild, onProjects, hasParts }) {
   const patch = p => setYard(y => ({ ...y, ...p }));
 
   return (
@@ -74,11 +74,12 @@ export default function YardScreen({ yard, setYard, onOpenBuild, onLoadSample, o
       <div style={{ maxWidth: 420 }}>
         <div className="mono" style={{ color: 'var(--grey)', marginBottom: 7 }}>Project</div>
         <div style={{ display: 'flex', gap: 8 }}>
+          <div className="btn-outline" onClick={onProjects}>All projects</div>
           <div className="btn-outline" onClick={onLoadSample}>Load sample fort</div>
           <div className={'btn-outline' + (hasParts ? '' : ' disabled')} onClick={onClearBuild}>Start from empty</div>
         </div>
         <p style={{ margin: '7px 0 0', fontSize: 12.5, lineHeight: 1.45, color: 'var(--ink-65)' }}>
-          Your build saves itself on this device as you work. Both of these can be undone.
+          Every project saves itself on this device as you work. Load sample and start-from-empty change this project and can be undone; use All projects to keep several builds.
         </p>
       </div>
 
