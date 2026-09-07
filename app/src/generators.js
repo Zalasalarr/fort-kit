@@ -63,6 +63,31 @@ export const TOOLS = {
       { k: 'spacing', n: 'Rung spacing', def: 12, options: [[10, '10 in'], [12, '12 in']] },
     ],
   },
+  roof: {
+    n: 'Roof', tip: '2×6 rafters at 24" on center with corrugated panels on top, 6" overhang. Gable adds a ridge board.',
+    params: [
+      { k: 'W', n: 'Width', def: 96, min: 48, max: 240, step: 12 },
+      { k: 'D', n: 'Depth', def: 96, min: 48, max: 240, step: 12 },
+      { k: 'H', n: 'Eave height', def: 84, min: 48, max: 144, step: 6 },
+      { k: 'pitch', n: 'Pitch', def: 26.6, options: [[0, 'Flat'], [14, '3:12'], [26.6, '6:12'], [37, '9:12']] },
+      { k: 'style', n: 'Style', def: 'shed', options: [['shed', 'Shed'], ['gable', 'Gable']] },
+    ],
+  },
+  railing: {
+    n: 'Railing', tip: '4×4 end posts, 2×4 top and bottom rails, 2×2 balusters. 4" gaps keep small heads out.',
+    params: [
+      { k: 'L', n: 'Length', def: 48, min: 24, max: 192, step: 12 },
+      { k: 'H', n: 'Height', def: 36, min: 30, max: 42, step: 6 },
+      { k: 'gap', n: 'Baluster gap', def: 4, options: [[4, '4 in'], [6, '6 in']] },
+    ],
+  },
+  stairs: {
+    n: 'Stairs', tip: 'Risers close to 7" on an 11" run, 2×12 stringers on edge, two 2×6 treads per step. Drag it up against the deck.',
+    params: [
+      { k: 'H', n: 'Total rise', def: 36, min: 12, max: 96, step: 3 },
+      { k: 'W', n: 'Width', def: 36, min: 24, max: 48, step: 6 },
+    ],
+  },
 };
 
 export function defaultParams(toolId) {
@@ -140,12 +165,84 @@ export function ladder({ H, W, spacing = 12 }) {
   return out;
 }
 
+const rad = d => (d * Math.PI) / 180;
+
+// One roof slope: rafters and panels running along Z, rising toward `dir` (-1 = toward -Z)
+function slope(out, { W, run, H, pitch, dir, oh = 6 }) {
+  const a = +pitch, c = Math.cos(rad(a));
+  const horiz = run + oh * 2;
+  const Ls = horiz / c;
+  const zc = -dir * (run / 2 - oh);       // centre of the horizontal span, offset so the high end lands at z = 0
+  const yaw = dir < 0 ? 90 : 270;
+  const xs = [];
+  for (let x = -W / 2 + .75; x < W / 2 - .75 - 1; x += 24) xs.push(x);
+  xs.push(W / 2 - .75);
+  xs.forEach(x => out.push(piece('2x6', { L: Ls, x, z: zc, y: H, roll: 90, pitch: a, yaw })));
+  const top = H + 5.5 / c;
+  const n = Math.ceil(W / 26);
+  for (let k = 0; k < n; k++) {
+    const w = Math.min(26, W - k * 26);
+    out.push(piece('corr', { L: Ls + 2, W: w, x: -W / 2 + k * 26 + w / 2, z: zc, y: top, pitch: a, yaw }));
+  }
+  return top;
+}
+
+export function roof({ W, D, H, pitch = 26.6, style = 'shed' }) {
+  const out = [];
+  const a = +pitch, oh = 6;
+  if (style === 'gable') {
+    slope(out, { W, run: D / 2, H, pitch: a, dir: -1, oh });
+    slope(out, { W, run: D / 2, H, pitch: a, dir: 1, oh });
+    const ridgeTop = H + (D / 2 + oh) * Math.tan(rad(a)) + 5.5 / Math.cos(rad(a));
+    out.push(piece('2x6', { L: W, y: ridgeTop - 5.5, z: 0, roll: 90 }));
+  } else {
+    slope(out, { W, run: D, H, pitch: a, dir: -1, oh });
+  }
+  return out;
+}
+
+export function railing({ L, H, gap = 4 }) {
+  const out = [];
+  for (const sx of [-1, 1]) out.push(piece('4x4', { L: H, x: sx * (L / 2 - 1.75), pitch: 90 }));
+  out.push(piece('2x4', { L, y: H }));
+  out.push(piece('2x4', { L: L - 7, y: 3 }));
+  const oc = 1.5 + +gap;
+  const span = L - 7 - 1.5;
+  const n = Math.floor(span / oc);
+  const start = -span / 2 + (span - n * oc) / 2 + .75;
+  for (let k = 0; k <= n; k++) {
+    const x = start + k * oc;
+    if (x + .75 > L / 2 - 3.5) break;
+    out.push(piece('2x2', { L: H - 6, x, y: 4.5, pitch: 90 }));
+  }
+  return out;
+}
+
+export function stairs({ H, W }) {
+  const out = [];
+  const run = 11;
+  const n = Math.max(1, Math.round(H / 7));
+  const r = H / n;
+  const a = Math.atan2(r, run) * 180 / Math.PI;
+  const Ls = Math.hypot(n * run, n * r) + 6;
+  const sx = W > 36 ? [-1, 0, 1] : [-1, 1];
+  sx.forEach(k => out.push(piece('2x12', { L: Ls, x: k * (W / 2 - .75), z: 0, y: 0, roll: 90, pitch: a, yaw: 90 })));
+  for (let k = 1; k <= n; k++) {
+    const z = (n * run) / 2 - (k - 1) * run - run / 2;
+    for (const dz of [-2.875, 2.875]) out.push(piece('2x6', { L: W, z: z + dz, y: k * r - 1.5 }));
+  }
+  return out;
+}
+
 export function generate(toolId, params) {
   switch (toolId) {
     case 'brickwall': return brickWall(params);
     case 'deck': return deck(params);
     case 'studwall': return studWall(params);
     case 'ladder': return ladder(params);
+    case 'roof': return roof(params);
+    case 'railing': return railing(params);
+    case 'stairs': return stairs(params);
     default: return [];
   }
 }
@@ -191,7 +288,7 @@ function monkeyBars() {
   return out;
 }
 
-function roof() {
+function roofPanel() {
   const out = [];
   for (const z of [-24, 0, 24]) out.push(piece('1x3', { L: 60, y: 0, z }));
   for (const z of [-13, 13]) out.push(piece('corr', { L: 60, W: 26, y: .75, z }));
@@ -219,7 +316,7 @@ export function explode(part) {
     case 'climb': return transformGroup(climbPanel(), { ...at, y: base, name: 'Climbing panel' });
     case 'net': return transformGroup(ropeNet(), { ...at, y: base, name: 'Rope net' });
     case 'monkey': return transformGroup(monkeyBars(), { ...at, y: base, name: 'Monkey bars' });
-    case 'roof': return transformGroup(roof(), { ...at, y: base - 9.6, name: 'Roof' });
+    case 'roof': return transformGroup(roofPanel(), { ...at, y: base - 9.6, name: 'Roof' });
     case 'pad': return transformGroup(brickPad(), { ...at, y: base, name: 'Paver pad' });
     case 'post': return transformGroup([piece('4x4', { L: 72, pitch: 90 })], { ...at, y: base, name: 'Corner post' });
     default: return null;

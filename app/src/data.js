@@ -85,6 +85,7 @@ export const STOCK = [
   { id: '2x4', n: '2×4', cat: 'lumber', mat: 'wood', T: 1.5, W: 3.5, L: 96, maxL: 192, lengths: [96, 120, 144, 192], price: .55, unit: 'ft' },
   { id: '2x6', n: '2×6', cat: 'lumber', mat: 'wood', T: 1.5, W: 5.5, L: 96, maxL: 192, lengths: [96, 120, 144, 192], price: .95, unit: 'ft' },
   { id: '2x8', n: '2×8', cat: 'lumber', mat: 'wood', T: 1.5, W: 7.25, L: 96, maxL: 192, lengths: [96, 120, 144, 192], price: 1.35, unit: 'ft' },
+  { id: '2x12', n: '2×12', cat: 'lumber', mat: 'wood', T: 1.5, W: 11.25, L: 96, maxL: 192, lengths: [96, 120, 144, 192], price: 2.1, unit: 'ft' },
   { id: '4x4', n: '4×4 post', cat: 'lumber', mat: 'wood', T: 3.5, W: 3.5, L: 96, maxL: 144, lengths: [96, 120, 144], price: 1.6, unit: 'ft', upright: true },
   { id: '1x3', n: '1×3', cat: 'lumber', mat: 'wood', T: .75, W: 2.5, L: 96, maxL: 96, lengths: [96], price: .5, unit: 'ft' },
   { id: '1x6', n: '1×6 fence board', cat: 'lumber', mat: 'wood', T: .75, W: 5.5, L: 72, maxL: 96, lengths: [72, 96], price: .6, unit: 'ft' },
