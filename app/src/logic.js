@@ -374,6 +374,20 @@ export function partRows(parts) {
   return rows;
 }
 
+// Centre a set of pieces on the origin with the lowest point on the ground, and drop group tags
+export function normalizePieces(parts) {
+  const pieces = parts.filter(isPiece);
+  if (!pieces.length) return [];
+  const idxs = pieces.map((_, i) => i);
+  const b = unionAABB(pieces, idxs);
+  const cx = (b.min.x + b.max.x) / 2, cz = (b.min.z + b.max.z) / 2, y0 = b.min.y;
+  return pieces.map(p => {
+    const q = { ...p, cx: p.cx - cx, cy: p.cy - y0, cz: p.cz - cz };
+    delete q.grp; delete q.gn; delete q.fromPlan;
+    return q;
+  });
+}
+
 /* ---------- plan (1b) ---------- */
 
 export function cellKeys(cells) {

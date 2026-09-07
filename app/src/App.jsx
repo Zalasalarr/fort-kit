@@ -4,11 +4,11 @@ import { SAMPLE_PROJECT, emptyProject, partByKey, stockById } from './data.js';
 import {
   cost, cutList, buyList, safetyChecks, maxLevel, massParts,
   isPiece, newPiece, restAt, pieceBottom, supportUnder, copyOffset,
-  groupIndices, unionAABB, supportUnderSet,
+  groupIndices, unionAABB, supportUnderSet, normalizePieces,
 } from './logic.js';
 import { generate, transformGroup, explode, defaultParams, newGroupId, TOOLS } from './generators.js';
 import { reducer, initState } from './store.js';
-import { shareUrl, loadFromHash, loadPrefs, savePrefs, loadWorkspace, loadProject, saveProject, saveIndex, removeProject, newProjectId } from './persist.js';
+import { shareUrl, loadFromHash, loadPrefs, savePrefs, loadWorkspace, loadProject, saveProject, saveIndex, removeProject, newProjectId, loadLibrary, saveLibrary } from './persist.js';
 import { snapshot } from './BuildView.js';
 import TabBar from './components/TabBar.jsx';
 import YardScreen from './components/YardScreen.jsx';
@@ -74,6 +74,7 @@ export default function App() {
   if (!boot.current) boot.current = bootstrap();
   const [ws, setWs] = useState(boot.current.ws);
   const [showProjects, setShowProjects] = useState(false);
+  const [library, setLibrary] = useState(() => loadLibrary());
   const [s, dispatch] = useReducer(reducer, null, () => initState(boot.current.project, boot.current.tab, loadPrefs()));
   const { project, ui } = s;
   const { parts, yard, cells } = project;
@@ -114,6 +115,61 @@ export default function App() {
     return () => { clearTimeout(t); window.removeEventListener('pagehide', persist); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project]);
+
+  /* ---------- custom parts ---------- */
+  const updateLibrary = fn => setLibrary(lib => { const next = fn(lib); saveLibrary(next); return next; });
+
+  // Save the selected group / piece, or the whole build, as a reusable named part
+  const saveCustom = (name, scope) => {
+    let source;
+    if (scope === 'build') {
+      source = [];
+      let skipped = 0;
+      parts.forEach(p => {
+        if (isPiece(p)) { source.push(p); return; }
+        const ex = explode(p);
+        if (ex) source.push(...ex); else skipped++;
+      });
+      if (skipped) say(`${skipped} mass block${skipped > 1 ? 's' : ''} left out — they can't become pieces`);
+    } else {
+      if (sel < 0) return false;
+      const idxs = (ui.groupMove && groupIndices(parts, sel)) || [sel];
+      source = idxs.map(i => parts[i]);
+      if (!source.every(isPiece)) {
+        const ex = explode(source[0]);
+        if (!ex) { say('Explode this part first, then save it'); return false; }
+        source = ex;
+      }
+    }
+    const pieces = normalizePieces(source);
+    if (!pieces.length) { say('Nothing to save yet'); return false; }
+    const clean = (name || '').trim() || 'Custom part';
+    const item = { id: 'c' + Date.now().toString(36), name: clean, created: Date.now(), pieces, count: pieces.length, cost: Math.round(cost(pieces)) };
+    updateLibrary(lib => [item, ...lib]);
+    say(`Saved "${clean}" · ${pieces.length} piece${pieces.length > 1 ? 's' : ''}`);
+    return true;
+  };
+
+  const placeCustom = id => {
+    const item = library.find(it => it.id === id);
+    if (!item) return;
+    const placed = transformGroup(item.pieces, { x: (((parts.length * 3) % 9) - 4) * 12, y: 0, z: 48, id: newGroupId(), name: item.name });
+    setParts(prev => prev.concat(placed));
+    setSel(parts.length);
+    setUi({ tab: 'build', groupMove: true });
+    say(`${item.name} placed · ${placed.length} piece${placed.length > 1 ? 's' : ''} · drag it into position`);
+  };
+
+  const renameCustom = (id, name) => {
+    const clean = (name || '').trim();
+    if (!clean) return;
+    updateLibrary(lib => lib.map(it => (it.id === id ? { ...it, name: clean } : it)));
+  };
+
+  const deleteCustom = id => {
+    updateLibrary(lib => lib.filter(it => it.id !== id));
+    say('Custom part deleted');
+  };
 
   /* ---------- projects ---------- */
   const switchTo = (id, proj, tab = 'build') => {
@@ -549,6 +605,7 @@ export default function App() {
                 moveSel={moveSel} movePiece={movePiece} moveGroup={moveGroup}
                 onDragStart={() => dispatch({ type: 'mark' })} onDragEnd={() => dispatch({ type: 'commit' })}
                 moveGroupBy={moveGroupBy} rotateGroup={rotateGroup} deleteGroup={deleteGroup} ungroup={ungroup} copyGroup={copyGroup} dropGroup={dropGroup}
+                library={library} onPlaceCustom={placeCustom} onSaveCustom={saveCustom}
               />
             )}
             {ui.tab === 'parts' && (
@@ -556,6 +613,7 @@ export default function App() {
                 filter={ui.filter} setFilter={f => setUi({ filter: f })}
                 catalog={ui.catalog} setCatalog={c => setUi({ catalog: c })}
                 addPart={addPart} addPiece={addPiece}
+                library={library} onPlaceCustom={placeCustom} onRenameCustom={renameCustom} onDeleteCustom={deleteCustom}
               />
             )}
             {ui.tab === 'list' && (

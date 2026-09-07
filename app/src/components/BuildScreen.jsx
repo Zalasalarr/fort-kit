@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { MATS, PARTS, QUICK_STOCK, SNAPS, stockById } from '../data.js';
 import { partName, isPiece, pieceDims, pieceBottom, fmtIn, groupIndices, unionAABB } from '../logic.js';
 import { TOOLS } from '../generators.js';
@@ -57,7 +58,11 @@ export default function BuildScreen({
   setSel, mutSel, editPiece, addPart, addPiece, removeSel, duplicateSel, dropSel, explodeSel,
   moveSel, movePiece, moveGroup, onDragStart, onDragEnd,
   moveGroupBy, rotateGroup, deleteGroup, ungroup, copyGroup, dropGroup,
+  library = [], onPlaceCustom, onSaveCustom,
 }) {
+  const [saving, setSaving] = useState(false);
+  const [saveName, setSaveName] = useState('');
+  const [saveScope, setSaveScope] = useState('selection');
   const selPart = parts[sel];
   const piece = selPart && isPiece(selPart);
   const stock = piece ? stockById(selPart.stock) : null;
@@ -71,6 +76,13 @@ export default function BuildScreen({
   const persp = camera === 'persp';
   const snapLabel = snap === 12 ? '1 ft' : `${snap} in`;
   const canExplode = selPart && !piece && selPart.k !== 'mass';
+  const selectionLabel = selPart ? (grouped ? selPart.gn : partName(selPart)) : '';
+  const openSave = () => {
+    setSaveScope(selPart ? 'selection' : 'build');
+    setSaveName(selPart ? selectionLabel : 'My build');
+    setSaving(true);
+  };
+  const doSave = () => { if (onSaveCustom(saveName, saveScope)) setSaving(false); };
 
   const moveBy = (dx, dz) => {
     if (grouped) return moveGroupBy({ dx: dx * snap, dy: 0, dz: dz * snap });
@@ -260,6 +272,53 @@ export default function BuildScreen({
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* custom parts */}
+          <div style={{ padding: '10px 0 6px', borderBottom: '1px solid var(--line)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 16px 8px' }}>
+              <div className="mono" style={{ color: 'var(--grey)' }}>Custom parts · yours</div>
+              {!saving && <div className="btn-outline" style={{ padding: '4px 8px', fontSize: 11 }} onClick={openSave}>Save as part</div>}
+            </div>
+            {saving && (
+              <div style={{ margin: '0 16px 10px', padding: '10px 12px', background: 'var(--steel-tint)', border: '1px solid var(--steel)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', border: '1px solid var(--line-24)' }}>
+                  <div className={'seg' + (saveScope === 'selection' ? ' on' : '') + (selPart ? '' : ' disabled')} style={{ padding: '5px 6px', fontSize: 12 }} onClick={() => setSaveScope('selection')}>
+                    {selPart ? `Selected: ${selectionLabel}` : 'Nothing selected'}
+                  </div>
+                  <div className={'seg' + (saveScope === 'build' ? ' on' : '')} style={{ padding: '5px 6px', fontSize: 12 }} onClick={() => setSaveScope('build')}>Whole build ({parts.length})</div>
+                </div>
+                <input
+                  className="name-input" style={{ fontSize: 18 }} value={saveName} placeholder="Name this part" maxLength={40} autoFocus
+                  onChange={e => setSaveName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') doSave(); if (e.key === 'Escape') setSaving(false); }}
+                />
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <div className="btn-primary" style={{ flex: 1, padding: 9, fontSize: 13 }} onClick={doSave}>Save</div>
+                  <div className="btn-outline" onClick={() => setSaving(false)}>Cancel</div>
+                </div>
+                <div style={{ font: '500 10px "IBM Plex Mono",monospace', color: 'var(--ink-55)', lineHeight: 1.4 }}>
+                  Saved parts are kept on this device and show up in every project. Assemblies are converted to real pieces when saved.
+                </div>
+              </div>
+            )}
+            {library.length === 0 && !saving && (
+              <div style={{ margin: '0 16px 8px', font: '500 10px "IBM Plex Mono",monospace', color: 'var(--ink-55)', lineHeight: 1.4 }}>
+                Select a group, a piece, or nothing (for the whole build), then Save as part to reuse it later.
+              </div>
+            )}
+            {library.length > 0 && (
+              <div className="palette">
+                {library.map(it => (
+                  <div key={it.id} className="palette-card" style={{ width: 104 }} onClick={() => onPlaceCustom(it.id)}>
+                    <div style={{ height: 3, width: 26, background: 'var(--steel-deep)', marginBottom: 8 }} />
+                    <div style={{ font: '600 15px/1.1 "Barlow Condensed",sans-serif', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</div>
+                    <div style={{ font: '500 10px "IBM Plex Mono",monospace', color: 'var(--ink-55)' }}>{it.count} piece{it.count > 1 ? 's' : ''}</div>
+                    <div style={{ font: '500 10px "IBM Plex Mono",monospace', color: 'var(--steel-deep)', marginTop: 4 }}>${it.cost}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* add a piece */}

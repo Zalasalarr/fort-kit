@@ -140,3 +140,24 @@ export function loadWorkspace() {
   }
   return idx;
 }
+
+/* ---------- custom parts library (shared by all projects on this device) ---------- */
+
+const LIB_KEY = 'fortkit.library';
+
+export function loadLibrary() {
+  try {
+    const lib = JSON.parse(localStorage.getItem(LIB_KEY));
+    return Array.isArray(lib) ? lib.filter(it => it && it.id && Array.isArray(it.pieces)) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveLibrary(lib) {
+  try {
+    localStorage.setItem(LIB_KEY, JSON.stringify(lib));
+  } catch {
+    // ignore
+  }
+}
