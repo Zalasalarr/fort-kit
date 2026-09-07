@@ -2,7 +2,7 @@ import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { SAMPLE_PROJECT, emptyProject, partByKey } from './data.js';
 import { cost, cutList, safetyChecks, maxLevel, massParts } from './logic.js';
 import { reducer, initState } from './store.js';
-import { loadSaved, save, shareUrl, loadFromHash } from './persist.js';
+import { loadSaved, save, shareUrl, loadFromHash, loadPrefs, savePrefs } from './persist.js';
 import { snapshot } from './BuildView.js';
 import TabBar from './components/TabBar.jsx';
 import YardScreen from './components/YardScreen.jsx';
@@ -41,7 +41,7 @@ export default function App() {
     const fromHash = loadFromHash();
     const saved = loadSaved();
     const project = fromHash || saved || SAMPLE_PROJECT;
-    return initState(project, fromHash || saved ? 'build' : 'yard');
+    return initState(project, fromHash || saved ? 'build' : 'yard', loadPrefs());
   });
   const { project, ui } = s;
   const { parts, yard, cells } = project;
@@ -69,8 +69,14 @@ export default function App() {
     return () => { clearTimeout(t); window.removeEventListener('pagehide', flush); };
   }, [project]);
 
+  useEffect(() => {
+    savePrefs({ render: ui.render, camera: ui.camera });
+  }, [ui.render, ui.camera]);
+
   /* ---------- actions ---------- */
   const setTab = tab => dispatch({ type: 'ui', patch: { tab } });
+  const setRender = render => dispatch({ type: 'ui', patch: { render } });
+  const setCamera = camera => dispatch({ type: 'ui', patch: { camera } });
   const setSel = idx => dispatch({ type: 'ui', patch: { sel: idx } });
   const patchProject = (patch, transient = false) => dispatch({ type: 'project', patch, transient });
   const setParts = (fn, transient) => patchProject(p => {
@@ -227,12 +233,14 @@ export default function App() {
                 cells={cells} brush={ui.brush} setBrush={setBrush} patchCells={patchCells}
                 mark={() => dispatch({ type: 'mark' })} commit={() => dispatch({ type: 'commit' })}
                 yard={yard} onConvert={convertPlan} onClear={clearPlan}
+                render={ui.render} setRender={setRender}
               />
             )}
             {ui.tab === 'build' && (
               <BuildScreen
                 parts={parts} sel={sel} yard={yard} maxLvl={maxLvl}
                 marks={ui.marks} setMarks={m => dispatch({ type: 'ui', patch: { marks: m } })}
+                render={ui.render} setRender={setRender} camera={ui.camera} setCamera={setCamera}
                 setSel={setSel} mutSel={mutSel} addPart={addPart} removeSel={removeSel} duplicateSel={duplicateSel}
                 moveSel={moveSel}
                 onDragStart={() => dispatch({ type: 'mark' })} onDragEnd={() => dispatch({ type: 'commit' })}

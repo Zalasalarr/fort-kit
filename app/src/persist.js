@@ -1,4 +1,22 @@
 const KEY = 'fortkit.project';
+const PREFS_KEY = 'fortkit.prefs';
+
+export function loadPrefs() {
+  try {
+    const p = JSON.parse(localStorage.getItem(PREFS_KEY));
+    return p && typeof p === 'object' ? p : {};
+  } catch {
+    return {};
+  }
+}
+
+export function savePrefs(prefs) {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+  } catch {
+    // ignore
+  }
+}
 
 function normalize(p) {
   if (!p || !Array.isArray(p.parts) || !p.yard) return null;

@@ -1,12 +1,16 @@
 const HISTORY_LIMIT = 60;
 
-export function initState(project, tab) {
+export function initState(project, tab, prefs = {}) {
   return {
     project,
     past: [],
     future: [],
     pending: null,
-    ui: { tab, sel: 0, filter: 'all', brush: { mat: 'wood', h: 4 }, marks: false, specTab: 'parts' },
+    ui: {
+      tab, sel: 0, filter: 'all', brush: { mat: 'wood', h: 4 }, marks: false, specTab: 'parts',
+      render: prefs.render === 'blueprint' ? 'blueprint' : 'real',
+      camera: prefs.camera === 'persp' ? 'persp' : 'iso',
+    },
   };
 }
 

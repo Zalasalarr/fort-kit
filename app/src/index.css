@@ -125,7 +125,12 @@ kbd {
 }
 .vp-zoom { position: absolute; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 6px; }
 .vp-zoom .step-btn { width: 30px; height: 30px; background: rgba(242, 242, 243, .85); }
-.vp-tools { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 6px; }
+.vp-tools { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: calc(100% - 20px); }
+.viewport.real .vp-caption, .viewport.real .vp-footer {
+  color: rgba(29, 31, 32, .75); background: rgba(242, 242, 243, .82); padding: 3px 6px;
+}
+.viewport.real .vp-caption { left: 8px; top: 8px; right: auto; max-width: calc(100% - 64px); }
+.viewport.real .vp-footer { left: 8px; bottom: 8px; }
 .vp-tools .btn-outline { padding: 6px 9px; font-size: 11px; background: rgba(242, 242, 243, .85); }
 .vp-tools .btn-outline.on { border-color: var(--steel); background: var(--steel-tint); }
 .vp-empty {

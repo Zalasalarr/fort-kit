@@ -10,6 +10,7 @@ export default function SheetScreen({ project, cuts, checks, total, specTab, set
   const viewRef = useRef(null);
   const [marks, setMarks] = useState(true);
   const [view, setView] = useState('iso');
+  const [real, setReal] = useState(false);
   const { parts, yard } = project;
 
   const pickView = name => {
@@ -28,6 +29,7 @@ export default function SheetScreen({ project, cuts, checks, total, specTab, set
       <Viewport
         className="tall"
         parts={parts} yard={yard} viewRef={viewRef} view="iso" zoom={8.5}
+        mode={real ? 'real' : 'blueprint'}
         marks={marks}
         caption="Sheet A-01 · drag to orbit · marks follow"
         emptyText="Nothing to draw yet — build something first"
@@ -36,6 +38,7 @@ export default function SheetScreen({ project, cuts, checks, total, specTab, set
           {VIEW_TABS.map(([k, n]) => (
             <div key={k} className={'btn-outline' + (view === k ? ' on' : '')} onClick={() => pickView(k)}>{n}</div>
           ))}
+          <div className={'btn-outline' + (real ? ' on' : '')} onClick={() => setReal(!real)}>Real</div>
           <div className={'btn-outline' + (marks ? ' on' : '')} onClick={() => setMarks(!marks)}>Marks</div>
         </div>
       </Viewport>

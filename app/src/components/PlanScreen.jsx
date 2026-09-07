@@ -6,7 +6,8 @@ import Viewport from './Viewport.jsx';
 const HEIGHTS = [2, 4, 6, 8];
 const TONES = ['', '#d6ebff', '#b5d9fd', '#94bce3', '#749dc4', '#597ea3', '#416180'];
 
-export default function PlanScreen({ cells, brush, setBrush, patchCells, mark, commit, yard, onConvert, onClear }) {
+export default function PlanScreen({ cells, brush, setBrush, patchCells, mark, commit, yard, onConvert, onClear, render, setRender }) {
+  const blueprint = render === 'blueprint';
   const painting = useRef(false);
   const lastKey = useRef(null);
   const stats = planStats(cells);
@@ -65,11 +66,15 @@ export default function PlanScreen({ cells, brush, setBrush, patchCells, mark, c
   return (
     <div className="editor">
       <Viewport
-        parts={preview} yard={yard} view="iso" zoom={13}
+        parts={preview} yard={yard} view="iso" zoom={13} mode={render}
         caption="Live pull-up · drag to orbit"
         footer={`${stats.volume} cu ft mass`}
         emptyText="Tap squares in the plan to lay mass"
-      />
+      >
+        <div className="vp-tools">
+          <div className={'btn-outline' + (blueprint ? ' on' : '')} onClick={() => setRender(blueprint ? 'real' : 'blueprint')}>Blueprint</div>
+        </div>
+      </Viewport>
 
       <div className="side">
         <div className="panel" style={{ padding: '12px 16px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>

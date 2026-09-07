@@ -4,6 +4,7 @@ import Pins from './Pins.jsx';
 
 export default function Viewport({
   parts, sel = -1, yard, pick = false, view = 'iso', zoom = 9,
+  mode = 'blueprint', camera = 'iso',
   onSelect, onMove, onDragStart, onDragEnd,
   marks = false, onPickPin, viewRef,
   caption, footer, emptyText, className = '', children,
@@ -13,7 +14,7 @@ export default function Viewport({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const v = new BuildView(canvas, { ...VIEWS[view], zoom, pick });
+    const v = new BuildView(canvas, { ...VIEWS[view], zoom, pick, mode, camera });
     if (viewRef) viewRef.current = v;
     setBv(v);
     const ro = new ResizeObserver(() => { v.resize(); v.draw(); });
@@ -35,7 +36,19 @@ export default function Viewport({
   });
 
   useEffect(() => {
-    if (bv && yard) { bv.setYard(yard.w, yard.d); bv.draw(); }
+    if (bv) bv.setMode(mode);
+  }, [bv, mode]);
+
+  useEffect(() => {
+    if (bv) bv.setCamera(camera);
+  }, [bv, camera]);
+
+  useEffect(() => {
+    if (bv && yard) {
+      bv.setGroundType(yard.ground);
+      bv.setYard(yard.w, yard.d);
+      bv.draw();
+    }
   }, [bv, yard]);
 
   useEffect(() => {
@@ -43,7 +56,7 @@ export default function Viewport({
   }, [bv, parts, sel]);
 
   return (
-    <div className={'viewport ' + className}>
+    <div className={'viewport ' + className + (mode === 'real' ? ' real' : '')}>
       <canvas ref={canvasRef} />
       {marks && bv && <Pins view={bv} parts={parts} sel={sel} onPick={onPickPin} />}
       {caption && <div className="vp-caption">{caption}</div>}

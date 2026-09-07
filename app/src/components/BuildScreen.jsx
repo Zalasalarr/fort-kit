@@ -5,23 +5,28 @@ import Viewport from './Viewport.jsx';
 const PALETTE = PARTS.filter(p => p.k !== 'mass').slice(0, 8);
 
 export default function BuildScreen({
-  parts, sel, yard, maxLvl, marks, setMarks,
+  parts, sel, yard, maxLvl, marks, setMarks, render, setRender, camera, setCamera,
   setSel, mutSel, addPart, removeSel, duplicateSel, moveSel, onDragStart, onDragEnd,
 }) {
   const selPart = parts[sel];
   const off = selPart ? '' : ' disabled';
+  const blueprint = render === 'blueprint';
+  const persp = camera === 'persp';
 
   return (
     <div className="editor">
       <Viewport
         parts={parts} sel={sel} yard={yard} pick
+        mode={render} camera={camera}
         onSelect={setSel} onMove={moveSel} onDragStart={onDragStart} onDragEnd={onDragEnd}
         marks={marks} onPickPin={setSel}
-        caption="1 ft grid · drag a part to move · drag space to orbit"
+        caption={`${persp ? 'Perspective' : 'Iso'} · 1 ft grid · drag a part to move · drag space to orbit`}
         footer={`${parts.length} parts · ${maxLvl || 0} ft high`}
         emptyText="Nothing built yet — add a part below, or paint one in Plan"
       >
         <div className="vp-tools">
+          <div className={'btn-outline' + (blueprint ? ' on' : '')} onClick={() => setRender(blueprint ? 'real' : 'blueprint')}>Blueprint</div>
+          <div className={'btn-outline' + (persp ? ' on' : '')} onClick={() => setCamera(persp ? 'iso' : 'persp')}>Persp</div>
           <div className={'btn-outline' + (marks ? ' on' : '')} onClick={() => setMarks(!marks)}>Marks</div>
         </div>
       </Viewport>
