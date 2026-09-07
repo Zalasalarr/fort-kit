@@ -3,7 +3,7 @@ import { partRows } from '../logic.js';
 import Viewport from './Viewport.jsx';
 
 const SPEC_TABS = [['parts', 'Parts'], ['cuts', 'Cut list'], ['safety', 'Safety']];
-const VIEW_TABS = [['iso', 'Iso'], ['plan', 'Plan'], ['front', 'Front'], ['side', 'Side']];
+const VIEW_TABS = [['iso', 'Overhead'], ['plan', 'Top'], ['front', 'Front'], ['side', 'Side']];
 
 export default function SheetScreen({ project, cuts, checks, total, specTab, setSpecTab, onExport, evening = false }) {
   const viewRef = useRef(null);
@@ -30,21 +30,21 @@ export default function SheetScreen({ project, cuts, checks, total, specTab, set
         parts={parts} yard={yard} viewRef={viewRef} view="iso" zoom={8.5}
         mode={real ? 'real' : 'blueprint'} evening={evening}
         marks={marks}
-        caption="Sheet A-01 · drag to orbit · marks follow"
+        caption="Drawing A-01 · drag to spin · labels follow"
         emptyText="Nothing to draw yet — build something first"
       >
         <div className="vp-tools">
           {VIEW_TABS.map(([k, n]) => (
             <div key={k} className={'btn-outline' + (view === k ? ' on' : '')} onClick={() => pickView(k)}>{n}</div>
           ))}
-          <div className={'btn-outline' + (real ? ' on' : '')} onClick={() => setReal(!real)}>Real</div>
-          <div className={'btn-outline' + (marks ? ' on' : '')} onClick={() => setMarks(!marks)}>Marks</div>
+          <div className={'btn-outline' + (real ? ' on' : '')} onClick={() => setReal(!real)}>Realistic</div>
+          <div className={'btn-outline' + (marks ? ' on' : '')} onClick={() => setMarks(!marks)}>Labels</div>
         </div>
       </Viewport>
 
       <div className="side">
         <div style={{ padding: '12px 16px 8px', flex: 'none' }}>
-          <div className="mono" style={{ color: 'var(--steel)' }}>Reads as a drawing</div>
+          <div className="mono" style={{ color: 'var(--steel)' }}>Drawing sheet</div>
           <div style={{ font: '600 24px/1.08 "Barlow Condensed",sans-serif', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {project.name}
           </div>
@@ -84,9 +84,9 @@ export default function SheetScreen({ project, cuts, checks, total, specTab, set
             </div>
             <div style={{ font: '600 22px/1 "Barlow Condensed",sans-serif' }}>${total}</div>
           </div>
-          <div className={'btn-primary' + (parts.length ? '' : ' disabled')} style={{ padding: 12, fontSize: 15 }} onClick={onExport}>Export sheet</div>
+          <div className={'btn-primary' + (parts.length ? '' : ' disabled')} style={{ padding: 12, fontSize: 15 }} onClick={onExport}>Print or save as PDF</div>
           <div style={{ font: '500 10px "IBM Plex Mono",monospace', color: 'var(--ink-55)', marginTop: 7 }}>
-            Opens a printable A-01 sheet: drawing, parts, cut list, safety read. Save as PDF from the print dialog.
+            Opens a printable drawing sheet with the parts, cut list and safety read.
           </div>
         </div>
       </div>

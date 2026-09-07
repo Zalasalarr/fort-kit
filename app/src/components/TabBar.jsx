@@ -1,11 +1,10 @@
-const TABS = [['yard', 'Yard'], ['plan', 'Plan'], ['build', 'Build'], ['parts', 'Parts'], ['list', 'List'], ['sheet', 'Sheet']];
+const TABS = [['yard', 'Yard'], ['build', 'Build'], ['plan', 'Sketch'], ['review', 'Review']];
 
 export default function TabBar({ tab, onPick }) {
   return (
-    <div className="tabbar">
+    <div className="topnav">
       {TABS.map(([k, label]) => (
         <div key={k} className={'tab' + (tab === k ? ' on' : '')} onClick={() => onPick(k)}>
-          <div className="tab-bar" />
           {label}
         </div>
       ))}

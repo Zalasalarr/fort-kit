@@ -14,9 +14,7 @@ import TabBar from './components/TabBar.jsx';
 import YardScreen from './components/YardScreen.jsx';
 import PlanScreen from './components/PlanScreen.jsx';
 import BuildScreen from './components/BuildScreen.jsx';
-import PartsScreen from './components/PartsScreen.jsx';
-import ListScreen from './components/ListScreen.jsx';
-import SheetScreen from './components/SheetScreen.jsx';
+import ReviewScreen from './components/ReviewScreen.jsx';
 import PrintSheet from './components/PrintSheet.jsx';
 import ProjectsPanel from './components/ProjectsPanel.jsx';
 
@@ -49,7 +47,7 @@ const entry = (id, project) => ({ id, name: project.name, updated: Date.now(), p
 function bootstrap() {
   const sharedParts = loadPartsFromHash();
   const res = bootstrapProject();
-  if (sharedParts.length) { res.sharedParts = sharedParts; res.tab = 'parts'; }
+  if (sharedParts.length) { res.sharedParts = sharedParts; res.tab = 'build'; }
   return res;
 }
 
@@ -163,7 +161,7 @@ export default function App() {
     const placed = transformGroup(item.pieces, { x: (((parts.length * 3) % 9) - 4) * 12, y: 0, z: 48, id: newGroupId(), name: item.name });
     setParts(prev => prev.concat(placed));
     setSel(parts.length);
-    setUi({ tab: 'build', groupMove: true });
+    setUi({ tab: 'build', groupMove: true, tool: null });
     say(`${item.name} placed · ${placed.length} piece${placed.length > 1 ? 's' : ''} · drag it into position`);
   };
 
@@ -188,7 +186,7 @@ export default function App() {
     say(fresh.length
       ? `Imported ${fresh.length} part${fresh.length > 1 ? 's' : ''}${skipped ? ` · ${skipped} already here` : ''}`
       : `Already on this device: ${items.map(it => it.name).join(', ')}`);
-    setUi({ tab: 'parts', catalog: 'custom' });
+    setUi({ tab: 'build', pane: 'add', addCat: 'custom', addQuery: '' });
   };
 
   const sharePart = async id => {
@@ -323,7 +321,7 @@ export default function App() {
   /* ---------- actions ---------- */
   const setUi = patch => dispatch({ type: 'ui', patch });
   const setTab = tab => setUi({ tab });
-  const setSel = idx => setUi({ sel: idx });
+  const setSel = idx => setUi({ sel: idx, pane: 'edit' });
   const patchProject = (patch, transient = false) => dispatch({ type: 'project', patch, transient });
   const setParts = (fn, transient) => patchProject(p => {
     const next = fn(p.parts);
@@ -360,8 +358,8 @@ export default function App() {
     const n = { k, x: ((parts.length * 3) % 9) - 4, z: 4, lvl: 0, mat: d.mat, rot: 0 };
     setParts(prev => prev.concat([n]));
     setSel(parts.length);
-    setTab('build');
-    say(`${d.n} added`);
+    setUi({ tab: 'build', tool: null });
+    say(`${d.n} added — drag it into place`);
   };
 
   const addPiece = id => {
@@ -370,9 +368,9 @@ export default function App() {
     p.cx = (((parts.length * 3) % 9) - 4) * 12;
     setParts(prev => prev.concat([p]));
     setSel(parts.length);
-    setTab('build');
+    setUi({ tab: 'build', tool: null });
     if (ui.snap === 12 && (st.cat === 'masonry' || st.attach)) setUi({ snap: 1 });
-    say(`${st.n} added`);
+    say(`${st.n} added — drag it into place`);
   };
 
   const duplicateSel = () => {
@@ -394,7 +392,7 @@ export default function App() {
   const removeSel = () => {
     if (sel < 0) return;
     setParts(prev => prev.filter((_, i) => i !== sel));
-    setSel(Math.max(0, sel - 1));
+    setUi({ sel: Math.max(0, sel - 1), pane: parts.length > 1 ? 'edit' : 'add' });
   };
 
   const moveSel = (idx, x, z) => setParts(prev => {
@@ -450,7 +448,7 @@ export default function App() {
     if (!group) return;
     const set = new Set(group);
     setParts(prev => prev.filter((_, i) => !set.has(i)));
-    setSel(Math.max(0, group[0] - 1));
+    setUi({ sel: Math.max(0, group[0] - 1), pane: parts.length > set.size ? 'edit' : 'add' });
     say(`${parts[sel].gn} deleted`);
   };
 
@@ -621,19 +619,21 @@ export default function App() {
         <div className="frame">
           <header className="head">
             <div className="head-l">
-              <div className="mono projects-btn" onClick={() => setShowProjects(true)} title="All projects">
-                Projects ▾ · {Math.max(1, ws.items.findIndex(it => it.id === ws.current) + 1)} of {ws.items.length}
+              <div className="brand">Fort Kit</div>
+              <div className="projects-btn" onClick={() => setShowProjects(true)} title="All projects">
+                Projects · {Math.max(1, ws.items.findIndex(it => it.id === ws.current) + 1)} of {ws.items.length} ▾
               </div>
               <EditableName value={project.name} onChange={setName} />
             </div>
+            <TabBar tab={ui.tab} onPick={setTab} />
             <div className="head-r">
               <div className="hist">
                 <button className="step-btn" title="Undo (Ctrl+Z)" disabled={!s.past.length} onClick={() => dispatch({ type: 'undo' })}>↶</button>
                 <button className="step-btn" title="Redo (Ctrl+Y)" disabled={!s.future.length} onClick={() => dispatch({ type: 'redo' })}>↷</button>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div className="mono" style={{ color: 'var(--grey)' }}>Est.</div>
-                <div style={{ font: '600 22px/1.1 "Barlow Condensed",sans-serif' }}>${total}</div>
+              <div className="est">
+                <div className="mono" style={{ color: 'var(--grey)' }}>Estimate</div>
+                <div className="est-n">${total}<span style={{ font: '500 12px "IBM Plex Mono",monospace', color: 'var(--ink-55)', marginLeft: 6 }}>of ${yard.budget}</span></div>
               </div>
             </div>
           </header>
@@ -663,32 +663,25 @@ export default function App() {
                 evening={ui.evening} setEvening={v => setUi({ evening: v })}
                 snap={ui.snap} setSnap={v => setUi({ snap: v })}
                 groupMove={ui.groupMove} setGroupMove={v => setUi({ groupMove: v })}
+                pane={ui.pane} setPane={p => setUi({ pane: p })}
+                cat={ui.addCat} setCat={c => setUi({ addCat: c })} query={ui.addQuery} setQuery={q => setUi({ addQuery: q })} partsCount={parts.length}
                 tool={ui.tool} toolParams={ui.toolParams || {}} setTool={setTool} setToolParams={setToolParams} onPlaceTool={placeTool}
                 setSel={setSel} mutSel={mutSel} editPiece={editPiece}
                 addPart={addPart} addPiece={addPiece} removeSel={removeSel} duplicateSel={duplicateSel} dropSel={dropSel} explodeSel={explodeSel}
                 moveSel={moveSel} movePiece={movePiece} moveGroup={moveGroup}
                 onDragStart={() => dispatch({ type: 'mark' })} onDragEnd={() => dispatch({ type: 'commit' })}
                 moveGroupBy={moveGroupBy} rotateGroup={rotateGroup} deleteGroup={deleteGroup} ungroup={ungroup} copyGroup={copyGroup} dropGroup={dropGroup}
-                library={library} onPlaceCustom={placeCustom} onSaveCustom={saveCustom}
+                library={library} onPlaceCustom={placeCustom} onSaveCustom={saveCustom} onSaveWholeBuild={name => saveCustom(name, 'build')}
+                onRenameCustom={renameCustom} onDeleteCustom={deleteCustom} onSharePart={sharePart} onExportLibrary={exportLibrary} onImportFile={importLibraryFile}
               />
             )}
-            {ui.tab === 'parts' && (
-              <PartsScreen
-                filter={ui.filter} setFilter={f => setUi({ filter: f })}
-                catalog={ui.catalog} setCatalog={c => setUi({ catalog: c })}
-                addPart={addPart} addPiece={addPiece}
-                library={library} onPlaceCustom={placeCustom} onRenameCustom={renameCustom} onDeleteCustom={deleteCustom}
-                onSharePart={sharePart} onExportLibrary={exportLibrary} onImportFile={importLibraryFile}
-              />
-            )}
-            {ui.tab === 'list' && (
-              <ListScreen checks={checks} cuts={cuts} buys={buys} total={total} budget={yard.budget} onShare={share} onPrint={exportSheet} hasParts={parts.length > 0} />
-            )}
-            {ui.tab === 'sheet' && (
-              <SheetScreen
-                project={project} cuts={cuts} checks={checks} total={total} evening={ui.evening}
-                specTab={ui.specTab} setSpecTab={t => setUi({ specTab: t })}
-                onExport={exportSheet}
+            {ui.tab === 'review' && (
+              <ReviewScreen
+                section={ui.reviewSection} setSection={v => setUi({ reviewSection: v })}
+                checks={checks} cuts={cuts} buys={buys} total={total} budget={yard.budget}
+                onShare={share} onPrint={exportSheet} hasParts={parts.length > 0} onYard={() => setTab('yard')}
+                project={project} evening={ui.evening}
+                specTab={ui.specTab} setSpecTab={t => setUi({ specTab: t })} onExport={exportSheet}
               />
             )}
           </div>
@@ -701,7 +694,6 @@ export default function App() {
               onClose={() => setShowProjects(false)}
             />
           )}
-          <TabBar tab={ui.tab} onPick={setTab} />
         </div>
       </div>
       <PrintSheet project={project} snapshot={shot} cuts={cuts} buys={buys} checks={checks} total={total} />

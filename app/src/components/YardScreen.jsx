@@ -7,7 +7,7 @@ export default function YardScreen({ yard, setYard, onOpenBuild, onLoadSample, o
   return (
     <div className="panel narrow" style={{ padding: '20px 20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div>
-        <div className="mono" style={{ color: 'var(--steel)', marginBottom: 6 }}>Step 1 of 3 · yard → build → list</div>
+        <div className="mono" style={{ color: 'var(--steel)', marginBottom: 6 }}>Start here · yard → build → review</div>
         <div style={{ font: '600 28px/1.08 "Barlow Condensed",sans-serif' }}>How much yard are we working with?</div>
         <p style={{ margin: '6px 0 0', fontSize: 14, lineHeight: 1.55, color: 'var(--ink-7)', maxWidth: 520 }}>
           The footprint sets the grid you build on and the fall zone the safety check uses. It's drawn as a blue outline in the 3D view.

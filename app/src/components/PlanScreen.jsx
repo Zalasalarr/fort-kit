@@ -72,15 +72,15 @@ export default function PlanScreen({ cells, brush, setBrush, patchCells, mark, c
         emptyText="Tap squares in the plan to lay mass"
       >
         <div className="vp-tools">
-          <div className={'btn-outline' + (blueprint ? ' on' : '')} onClick={() => setRender(blueprint ? 'real' : 'blueprint')}>Blueprint</div>
+          <div className={'btn-outline' + (!blueprint ? ' on' : '')} onClick={() => setRender(blueprint ? 'real' : 'blueprint')}>{blueprint ? 'Drawing look' : 'Realistic'}</div>
         </div>
       </Viewport>
 
       <div className="side">
         <div className="panel" style={{ padding: '12px 16px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div>
-            <div className="mono" style={{ color: 'var(--steel)' }}>Draw first, decide later</div>
-            <div style={{ font: '600 24px/1.08 "Barlow Condensed",sans-serif', marginTop: 2 }}>Tap squares to lay mass</div>
+            <div className="mono" style={{ color: 'var(--steel)' }}>Sketch · rough it out first</div>
+            <div style={{ font: '600 24px/1.08 "Barlow Condensed",sans-serif', marginTop: 2 }}>Paint squares to block out a shape</div>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
@@ -110,7 +110,7 @@ export default function PlanScreen({ cells, brush, setBrush, patchCells, mark, c
               {grid}
             </div>
             <div style={{ font: '500 9.5px "IBM Plex Mono",monospace', color: 'var(--ink-55)', marginTop: 8 }}>
-              Each square 2 ft · tap to raise, tap again to cycle · drag to paint
+              Each square is 2 ft · tap to raise, tap again for taller · drag to paint
             </div>
           </div>
         </div>
@@ -123,7 +123,7 @@ export default function PlanScreen({ cells, brush, setBrush, patchCells, mark, c
             <div style={{ font: '600 24px/1 "Barlow Condensed",sans-serif' }}>${stats.cost}</div>
           </div>
           <div className={'btn-primary' + (stats.squares ? '' : ' disabled')} style={{ padding: 12, fontSize: 15 }} onClick={onConvert}>
-            Convert mass to real parts
+            Turn the sketch into parts
           </div>
         </div>
       </div>
