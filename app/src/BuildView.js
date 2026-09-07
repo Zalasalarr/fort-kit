@@ -26,6 +26,7 @@ export class BuildView {
     this.mode = mode;
     this.cameraKind = camera;
     this.snap = snap;
+    this.groupMove = true;
     this.parts = [];
     this.sel = -1;
     this.bounds = [];
@@ -33,6 +34,7 @@ export class BuildView {
     this.onSelect = null;
     this.onMove = null;
     this.onMovePiece = null;
+    this.onMoveGroup = null;
     this.onDragStart = null;
     this.onDragEnd = null;
     this.afterDraw = null;
@@ -236,10 +238,20 @@ export class BuildView {
         if (hit) {
           const part = this.parts[hit.idx];
           this._plane.constant = -hit.point.y;
-          if (isPiece(part)) {
+          if (isPiece(part) && part.grp && this.groupMove) {
+            const members = this.parts.map((q, i) => (q.grp === part.grp ? i : -1)).filter(i => i >= 0);
+            const u = new THREE.Box3();
+            members.forEach(i => { if (this.aabbs[i]) u.union(this.aabbs[i]); });
+            const c = u.getCenter(new THREE.Vector3());
+            this._drag = {
+              idx: hit.idx, piece: true, group: members, set: new Set(members), moved: false,
+              hx: (u.max.x - u.min.x) / 2, hy: (u.max.y - u.min.y) / 2, hz: (u.max.z - u.min.z) / 2,
+              offX: c.x - hit.point.x, offZ: c.z - hit.point.z, ucx: c.x, ucy: c.y, ucz: c.z,
+            };
+          } else if (isPiece(part)) {
             const b = this.aabbs[hit.idx];
             this._drag = {
-              idx: hit.idx, piece: true, moved: false,
+              idx: hit.idx, piece: true, set: new Set([hit.idx]), moved: false,
               hx: (b.max.x - b.min.x) / 2, hy: (b.max.y - b.min.y) / 2, hz: (b.max.z - b.min.z) / 2,
               offX: part.cx / 12 - hit.point.x, offZ: part.cz / 12 - hit.point.z,
             };
@@ -319,8 +331,29 @@ export class BuildView {
     const part = this.parts[d.idx];
     if (!part) return;
     const stock = stockById(part.stock);
-    const h = this._hitExcluding(e, d.idx);
+    const h = this._hitExcluding(e, d.set);
     let cx, cz, bottom = null, patch;
+
+    if (d.group) {
+      if (h && h.normal.y > .7) {
+        cx = h.point.x + d.offX; cz = h.point.z + d.offZ; bottom = h.point.y;
+      } else {
+        const p = h ? h.point : this._planePoint(e);
+        if (!p) return;
+        cx = p.x + d.offX; cz = p.z + d.offZ;
+      }
+      cx = Math.round((cx - d.hx) / s) * s + d.hx;
+      cz = Math.round((cz - d.hz) / s) * s + d.hz;
+      [cx, cz] = this._edgeSnap(d.set, cx, cz, d.hx, d.hz);
+      if (bottom === null) bottom = this._supportTop(d.set, cx - d.hx, cx + d.hx, cz - d.hz, cz + d.hz);
+      const cy = bottom + d.hy;
+      const dx = cx - d.ucx, dy = cy - d.ucy, dz = cz - d.ucz;
+      if (Math.abs(dx) < 1e-4 && Math.abs(dy) < 1e-4 && Math.abs(dz) < 1e-4) return;
+      d.ucx = cx; d.ucy = cy; d.ucz = cz;
+      this._started(d);
+      if (this.onMoveGroup) this.onMoveGroup(d.group, { dx: dx * 12, dy: dy * 12, dz: dz * 12 });
+      return;
+    }
 
     if (h && stock.attach && h.normal.y < .5) {
       // Stick to the face: thickness axis along the face normal
@@ -345,8 +378,8 @@ export class BuildView {
       }
       cx = Math.round((cx - d.hx) / s) * s + d.hx;
       cz = Math.round((cz - d.hz) / s) * s + d.hz;
-      [cx, cz] = this._edgeSnap(d.idx, cx, cz, d.hx, d.hz);
-      if (bottom === null) bottom = this._supportTop(d.idx, cx - d.hx, cx + d.hx, cz - d.hz, cz + d.hz);
+      [cx, cz] = this._edgeSnap(d.set, cx, cz, d.hx, d.hz);
+      if (bottom === null) bottom = this._supportTop(d.set, cx - d.hx, cx + d.hx, cz - d.hz, cz + d.hz);
       patch = { cx: cx * 12, cy: (bottom + d.hy) * 12, cz: cz * 12 };
     }
 
@@ -356,11 +389,11 @@ export class BuildView {
     if (this.onMovePiece) this.onMovePiece(d.idx, patch);
   }
 
-  _supportTop(idx, minX, maxX, minZ, maxZ) {
+  _supportTop(skip, minX, maxX, minZ, maxZ) {
     let top = 0;
     const inset = .02;
     this.aabbs.forEach((b, i) => {
-      if (i === idx || !b) return;
+      if (skip.has(i) || !b) return;
       if (maxX - inset > b.min.x && minX + inset < b.max.x && maxZ - inset > b.min.z && minZ + inset < b.max.z) {
         top = Math.max(top, b.max.y);
       }
@@ -368,10 +401,10 @@ export class BuildView {
     return top;
   }
 
-  _edgeSnap(idx, cx, cz, hx, hz) {
+  _edgeSnap(skip, cx, cz, hx, hz) {
     let bestX = null, bestZ = null;
     this.aabbs.forEach((b, i) => {
-      if (i === idx || !b) return;
+      if (skip.has(i) || !b) return;
       const nearZ = cz + hz > b.min.z - 2 && cz - hz < b.max.z + 2;
       const nearX = cx + hx > b.min.x - 2 && cx - hx < b.max.x + 2;
       if (nearZ) {
@@ -423,7 +456,7 @@ export class BuildView {
     for (const h of hits) {
       if (!h.face) continue;
       const idx = this._partIndex(h.object);
-      if (idx === undefined || idx === skip) continue;
+      if (idx === undefined || skip.has(idx)) continue;
       const normal = h.face.normal.clone().transformDirection(h.object.matrixWorld);
       return { idx, point: h.point, normal };
     }
@@ -541,11 +574,17 @@ export class BuildView {
         const c = bb.getCenter(new THREE.Vector3());
         this.bounds[i] = { x: c.x, z: c.z, top: bb.max.y };
         this.aabbs[i] = bb;
-        if (i === selIdx) {
-          this.group.add(new THREE.Box3Helper(bb.clone().expandByScalar(.1), new THREE.Color('#5980a6')));
-        }
       }
     });
+    const selPart = parts[selIdx];
+    if (selPart) {
+      let box = this.aabbs[selIdx] ? this.aabbs[selIdx].clone() : null;
+      if (box && isPiece(selPart) && selPart.grp && this.groupMove) {
+        box = new THREE.Box3();
+        parts.forEach((q, i) => { if (q.grp === selPart.grp && this.aabbs[i]) box.union(this.aabbs[i]); });
+      }
+      if (box) this.group.add(new THREE.Box3Helper(box.expandByScalar(.1), new THREE.Color('#5980a6')));
+    }
     this.draw();
   }
 

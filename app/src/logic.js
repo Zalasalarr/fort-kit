@@ -142,7 +142,7 @@ export function costOf(p) {
   if (isPiece(p)) {
     const s = stockById(p.stock), { L, W } = pieceDims(p);
     if (s.unit === 'each') return s.price;
-    if (s.unit === 'sheet') return s.price * (W * L) / (48 * 96);
+    if (s.unit === 'sheet') return s.price * (W * L) / (s.W * s.L);
     return s.price * L / 12;
   }
   if (p.k === 'mass') return Math.round(MASS_COST_PER_FT * p.h * MATS[p.mat].rate);
@@ -157,7 +157,7 @@ export function cost(parts) {
 export function cutsFor(p) {
   if (isPiece(p)) {
     const s = stockById(p.stock), { L, W } = pieceDims(p);
-    if (s.unit === 'each') return [[s.n, 1]];
+    if (s.unit === 'each') return [[L < s.L - .01 ? `${s.n}, cut to ${fmtIn(L)}` : s.n, 1]];
     if (s.unit === 'sheet') return [[`${s.n}, ${W}×${L} in`, 1]];
     return [[`${s.n}, ${fmtIn(L)}`, 1]];
   }
@@ -183,26 +183,27 @@ export function buyList(parts) {
   return Object.keys(byStock).map(id => {
     const s = stockById(id);
     if (s.unit === 'sheet') {
-      const sheets = Math.ceil(byStock[id].reduce((a, b) => a + b, 0) / (48 * 96) * 1.1);
-      return { label: s.n, lines: [`${sheets} sheet${sheets > 1 ? 's' : ''} of 4×8`], waste: null };
+      const sheets = Math.ceil(byStock[id].reduce((a, b) => a + b, 0) / (s.W * s.L) * 1.1);
+      return { label: s.n, lines: [`${sheets} × ${s.W}×${s.L} in`], waste: null };
     }
     const lengths = byStock[id].slice().sort((a, b) => b - a);
-    const base = s.lengths[0];
-    const bins = [];
-    lengths.forEach(len => {
-      const bin = bins.find(b => b.left >= len + .25);
-      if (bin) { bin.left -= len + .25; return; }
-      const stockLen = s.lengths.find(l => l >= len) || s.lengths[s.lengths.length - 1];
-      bins.push({ size: Math.max(base, stockLen), left: Math.max(base, stockLen) - len - .25 });
+    const longest = lengths[0];
+    // Try each stock length that fits the longest piece; keep the one with the least offcut
+    let best = null;
+    s.lengths.filter(S => S >= longest - .25).forEach(S => {
+      const bins = [];
+      lengths.forEach(len => {
+        const bin = bins.find(b => b.left + .25 >= len);
+        if (bin) bin.left -= len + .125; else bins.push({ left: S - len - .125 });
+      });
+      const waste = bins.reduce((t, b) => t + Math.max(0, b.left), 0);
+      if (!best || waste < best.waste - .01) best = { S, count: bins.length, waste };
     });
-    const counts = {};
-    bins.forEach(b => { counts[b.size] = (counts[b.size] || 0) + 1; });
-    const waste = bins.reduce((t, b) => t + Math.max(0, b.left), 0);
-    return {
-      label: s.n,
-      lines: Object.keys(counts).sort((a, b) => a - b).map(sz => `${counts[sz]} × ${sz / 12} ft`),
-      waste,
-    };
+    if (!best) {
+      const S = s.lengths[s.lengths.length - 1];
+      best = { S, count: lengths.length, waste: 0 };
+    }
+    return { label: s.n, lines: [`${best.count} × ${best.S / 12} ft`], waste: best.waste };
   });
 }
 
@@ -219,6 +220,31 @@ export function outsideYard(parts, yard) {
     const f = footprint(p);
     return f.minX < -hw || f.maxX > hw || f.minZ < -hd || f.maxZ > hd;
   });
+}
+
+// Pieces nothing touches and that aren't on the ground (holds attach to faces and ropes hang, so they are exempt)
+export function floatingPieces(parts) {
+  const boxes = parts.map(p => {
+    const b = partAABB(p);
+    return { minX: b.min.x * 12, maxX: b.max.x * 12, minZ: b.min.z * 12, maxZ: b.max.z * 12, top: b.max.y * 12, bottom: b.min.y * 12 };
+  });
+  const out = [];
+  parts.forEach((p, i) => {
+    if (!isPiece(p)) return;
+    const s = stockById(p.stock);
+    if (s.attach || s.cat === 'rope') return;
+    const me = boxes[i];
+    if (me.bottom <= 1) return;
+    let touched = false;
+    for (let j = 0; j < boxes.length && !touched; j++) {
+      if (j === i) continue;
+      const b = boxes[j];
+      touched = me.maxX + .25 > b.minX && me.minX - .25 < b.maxX && me.maxZ + .25 > b.minZ && me.minZ - .25 < b.maxZ
+        && b.bottom <= me.top + .5 && b.top >= me.bottom - .5;
+    }
+    if (!touched) out.push(p);
+  });
+  return out;
 }
 
 export function maxLevel(parts) {
@@ -261,7 +287,7 @@ export function safetyChecks(parts, yard, total) {
     checks.push({ ok: false, t: `${outside.length} part${outside.length > 1 ? 's sit' : ' sits'} outside the ${yard.w}×${yard.d} ft yard.` });
   }
 
-  const floating = parts.filter((p, i) => isPiece(p) && pieceBottom(p) - supportUnder(parts, i) > 1);
+  const floating = floatingPieces(parts);
   if (floating.length) {
     checks.push({ ok: false, t: `${floating.length} piece${floating.length > 1 ? 's are' : ' is'} floating with nothing underneath. Drop them onto a support or add framing.` });
   }
@@ -275,6 +301,77 @@ export function safetyChecks(parts, yard, total) {
   }
 
   return checks;
+}
+
+/* ---------- groups ---------- */
+
+export function groupIndices(parts, idx) {
+  const g = parts[idx] && parts[idx].grp;
+  if (!g) return null;
+  return parts.map((p, i) => (p.grp === g ? i : -1)).filter(i => i >= 0);
+}
+
+export function groupsOf(parts) {
+  const m = new Map();
+  parts.forEach((p, i) => {
+    if (!p.grp) return;
+    if (!m.has(p.grp)) m.set(p.grp, { id: p.grp, name: p.gn || 'Group', indices: [] });
+    m.get(p.grp).indices.push(i);
+  });
+  return m;
+}
+
+// Union box of a set of parts, in inches
+export function unionAABB(parts, idxs) {
+  const box = new Box3();
+  idxs.forEach(i => {
+    const p = parts[i];
+    const b = isPiece(p) ? pieceAABB(p) : partAABB(p).clone();
+    if (!isPiece(p)) { b.min.multiplyScalar(12); b.max.multiplyScalar(12); }
+    box.union(b);
+  });
+  return box;
+}
+
+export function supportUnderSet(parts, idxs) {
+  const set = new Set(idxs);
+  const me = unionAABB(parts, idxs);
+  const inset = .25;
+  let top = 0;
+  parts.forEach((q, i) => {
+    if (set.has(i)) return;
+    const b = partAABB(q);
+    const minX = b.min.x * 12, maxX = b.max.x * 12, minZ = b.min.z * 12, maxZ = b.max.z * 12;
+    if (me.max.x - inset > minX && me.min.x + inset < maxX && me.max.z - inset > minZ && me.min.z + inset < maxZ) {
+      top = Math.max(top, b.max.y * 12);
+    }
+  });
+  return top;
+}
+
+export function groupLabel(parts, g) {
+  const n = g.indices.length;
+  const bottom = unionAABB(parts, g.indices).min.y;
+  return `${g.name} · ${n} piece${n > 1 ? 's' : ''} · ${bottom < .5 ? 'ground' : fmtIn(bottom)}`;
+}
+
+// One row per ungrouped part and one per group, for the sheet and the print
+export function partRows(parts) {
+  const rows = [];
+  const seen = new Set();
+  const groups = groupsOf(parts);
+  parts.forEach((p, i) => {
+    if (p.grp) {
+      if (seen.has(p.grp)) return;
+      seen.add(p.grp);
+      const g = groups.get(p.grp);
+      const total = g.indices.reduce((t, k) => t + costOf(parts[k]), 0);
+      rows.push({ a: g.name, b: `${g.indices.length} pieces · ${heightLabel(parts[g.indices[0]])}`, cost: total, i, group: g });
+      return;
+    }
+    rows.push({ a: partName(p), b: `${MATS[p.mat].n} · ${heightLabel(p)} · at ${positionLabel(p)}`, cost: costOf(p), i, p });
+  });
+  return rows;
 }
 
 /* ---------- plan (1b) ---------- */

@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
-import { MATS } from '../data.js';
-import { partName, heightLabel, positionLabel } from '../logic.js';
+import { partRows } from '../logic.js';
 import Viewport from './Viewport.jsx';
 
 const SPEC_TABS = [['parts', 'Parts'], ['cuts', 'Cut list'], ['safety', 'Safety']];
@@ -19,7 +18,7 @@ export default function SheetScreen({ project, cuts, checks, total, specTab, set
   };
 
   const rows = specTab === 'parts'
-    ? parts.map(p => ({ a: partName(p), b: `${MATS[p.mat].n} · ${heightLabel(p)} · at ${positionLabel(p)}` }))
+    ? partRows(parts).map(r => ({ a: r.a, b: r.b }))
     : specTab === 'cuts'
       ? cuts.map(c => ({ a: c.label, b: '×' + c.qty }))
       : checks.map(c => ({ a: c.t, b: c.ok ? 'ok' : 'fix' }));

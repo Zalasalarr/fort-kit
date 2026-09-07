@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { Vector3 } from 'three';
 import { SAMPLE_PROJECT, emptyProject, partByKey, stockById } from './data.js';
 import {
   cost, cutList, buyList, safetyChecks, maxLevel, massParts,
   isPiece, newPiece, restAt, pieceBottom, supportUnder, copyOffset,
+  groupIndices, unionAABB, supportUnderSet,
 } from './logic.js';
+import { generate, transformGroup, explode, defaultParams, newGroupId, TOOLS } from './generators.js';
 import { reducer, initState } from './store.js';
 import { loadSaved, save, shareUrl, loadFromHash, loadPrefs, savePrefs } from './persist.js';
 import { snapshot } from './BuildView.js';
@@ -139,6 +142,7 @@ export default function App() {
     if (isPiece(src)) {
       const o = copyOffset(src);
       copy = { ...src, cx: src.cx + o.x, cy: src.cy + o.y, cz: src.cz + o.z };
+      delete copy.grp; delete copy.gn;
     } else {
       copy = { ...src, x: src.x + 2 };
       delete copy.fromPlan;
@@ -171,6 +175,101 @@ export default function App() {
     if (sel < 0 || !isPiece(parts[sel])) return;
     const top = supportUnder(parts, sel);
     editPiece(p => { Object.assign(p, restAt(p, top)); }, false);
+  };
+
+  /* ---------- groups ---------- */
+  const group = sel >= 0 ? groupIndices(parts, sel) : null;
+
+  const shiftGroup = (idxs, d, transient = false) => setParts(prev => {
+    const set = new Set(idxs);
+    return prev.map((p, i) => (set.has(i) ? { ...p, cx: p.cx + d.dx, cy: p.cy + d.dy, cz: p.cz + d.dz } : p));
+  }, transient);
+
+  const moveGroup = (idxs, d) => shiftGroup(idxs, d, true);
+
+  const moveGroupBy = (d, clamp = false) => {
+    if (!group) return;
+    let dy = d.dy;
+    if (clamp && dy < 0) dy = Math.max(dy, -unionAABB(parts, group).min.y);
+    shiftGroup(group, { ...d, dy });
+  };
+
+  const rotateGroup = deg => {
+    if (!group) return;
+    const c = unionAABB(parts, group).getCenter(new Vector3());
+    const r = (deg * Math.PI) / 180, cs = Math.cos(r), sn = Math.sin(r);
+    const set = new Set(group);
+    setParts(prev => prev.map((p, i) => {
+      if (!set.has(i)) return p;
+      const x = p.cx - c.x, z = p.cz - c.z;
+      return { ...p, cx: x * cs + z * sn + c.x, cz: -x * sn + z * cs + c.z, yaw: ((p.yaw || 0) + deg) % 360 };
+    }));
+  };
+
+  const deleteGroup = () => {
+    if (!group) return;
+    const set = new Set(group);
+    setParts(prev => prev.filter((_, i) => !set.has(i)));
+    setSel(Math.max(0, group[0] - 1));
+    say(`${parts[sel].gn} deleted`);
+  };
+
+  const ungroup = () => {
+    if (!group) return;
+    const set = new Set(group);
+    setParts(prev => prev.map((p, i) => {
+      if (!set.has(i)) return p;
+      const q = { ...p };
+      delete q.grp; delete q.gn;
+      return q;
+    }));
+    say('Ungrouped — every piece is on its own now');
+  };
+
+  const copyGroup = () => {
+    if (!group) return;
+    const u = unionAABB(parts, group);
+    const dx = (u.max.x - u.min.x) + 12;
+    const id = newGroupId();
+    const copies = group.map(i => ({ ...parts[i], cx: parts[i].cx + dx, grp: id }));
+    setParts(prev => prev.concat(copies));
+    setSel(parts.length);
+  };
+
+  const dropGroup = () => {
+    if (!group) return;
+    const top = supportUnderSet(parts, group);
+    const bottom = unionAABB(parts, group).min.y;
+    shiftGroup(group, { dx: 0, dy: top - bottom, dz: 0 });
+  };
+
+  const setTool = id => setUi(u => ({
+    ...u,
+    tool: id,
+    toolParams: id ? (u.toolParams && u.toolFor === id ? u.toolParams : defaultParams(id)) : null,
+    toolFor: id,
+  }));
+  const setToolParams = patch => setUi(u => ({ ...u, toolParams: { ...u.toolParams, ...patch } }));
+
+  const placeTool = () => {
+    if (!ui.tool) return;
+    const pieces = generate(ui.tool, ui.toolParams);
+    if (!pieces.length) return;
+    const name = TOOLS[ui.tool].n;
+    const placed = transformGroup(pieces, { x: (((parts.length * 3) % 9) - 4) * 12, y: 0, z: 48, id: newGroupId(), name });
+    setParts(prev => prev.concat(placed));
+    setSel(parts.length);
+    setUi({ tool: null, groupMove: true });
+    say(`${name} placed · ${placed.length} pieces · drag it into position`);
+  };
+
+  const explodeSel = () => {
+    if (sel < 0 || isPiece(parts[sel])) return;
+    const pieces = explode(parts[sel]);
+    if (!pieces) { say('This part can\'t be exploded'); return; }
+    setParts(prev => prev.slice(0, sel).concat(pieces, prev.slice(sel + 1)));
+    setUi({ groupMove: true });
+    say(`${pieces[0].gn} rebuilt from ${pieces.length} real pieces`);
   };
 
   const setYard = fn => patchProject(p => ({ ...p, yard: fn(p.yard) }));
@@ -230,36 +329,43 @@ export default function App() {
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); dispatch({ type: e.shiftKey ? 'redo' : 'undo' }); return; }
       if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); dispatch({ type: 'redo' }); return; }
+      if (e.key === 'Escape' && ui.tool) { setTool(null); return; }
       if (ui.tab !== 'build' || sel < 0) return;
       const p0 = parts[sel], piece = isPiece(p0), st = ui.snap;
-      const nudge = (dx, dz) => piece
-        ? editPiece(p => { p.cx += dx * st; p.cz += dz * st; }, false)
-        : mutSel(p => { p.x = +(p.x + dx * st / 12).toFixed(3); p.z = +(p.z + dz * st / 12).toFixed(3); });
+      const grouped = piece && !!p0.grp && ui.groupMove;
+      const nudge = (dx, dz) => {
+        if (grouped) moveGroupBy({ dx: dx * st, dy: 0, dz: dz * st });
+        else if (piece) editPiece(p => { p.cx += dx * st; p.cz += dz * st; }, false);
+        else mutSel(p => { p.x = +(p.x + dx * st / 12).toFixed(3); p.z = +(p.z + dz * st / 12).toFixed(3); });
+      };
+      const lift = dy => {
+        if (grouped) moveGroupBy({ dx: 0, dy: dy * st, dz: 0 }, true);
+        else if (piece) editPiece(p => { p.cy += dy * st; }, false, dy < 0);
+        else mutSel(p => { p.lvl = Math.max(0, Math.min(12, p.lvl + dy)); });
+      };
       switch (e.key) {
         case 'ArrowUp': nudge(0, -1); break;
         case 'ArrowDown': nudge(0, 1); break;
         case 'ArrowLeft': nudge(-1, 0); break;
         case 'ArrowRight': nudge(1, 0); break;
-        case 'PageUp': case '+': case '=':
-          if (piece) editPiece(p => { p.cy += st; }, false); else mutSel(p => { p.lvl = Math.min(12, p.lvl + 1); });
-          break;
-        case 'PageDown': case '-': case '_':
-          if (piece) editPiece(p => { p.cy -= st; }, false, true); else mutSel(p => { p.lvl = Math.max(0, p.lvl - 1); });
-          break;
-        case 'g': case 'G': dropSel(); break;
+        case 'PageUp': case '+': case '=': lift(1); break;
+        case 'PageDown': case '-': case '_': lift(-1); break;
+        case 'g': case 'G': if (grouped) dropGroup(); else dropSel(); break;
         case 'r': case 'R':
-          if (piece) editPiece(p => { p.yaw = ((p.yaw || 0) + (e.shiftKey ? 15 : 90)) % 360; }); else mutSel(p => { p.rot = ((p.rot || 0) + 1) % 4; });
+          if (grouped) rotateGroup(90);
+          else if (piece) editPiece(p => { p.yaw = ((p.yaw || 0) + (e.shiftKey ? 15 : 90)) % 360; });
+          else mutSel(p => { p.rot = ((p.rot || 0) + 1) % 4; });
           break;
         case 't': case 'T':
-          if (piece) editPiece(p => { p.pitch = p.pitch === 0 ? 45 : p.pitch === 45 ? 90 : 0; }); break;
+          if (piece && !grouped) editPiece(p => { p.pitch = p.pitch === 0 ? 45 : p.pitch === 45 ? 90 : 0; }); break;
         case 'e': case 'E':
-          if (piece) editPiece(p => { p.roll = p.roll ? 0 : 90; }); break;
+          if (piece && !grouped) editPiece(p => { p.roll = p.roll ? 0 : 90; }); break;
         case '[':
-          if (piece && !stockById(p0.stock).fixed) editPiece(p => { p.L = Math.max(1, p.L - (e.shiftKey ? 12 : 1)); }); break;
+          if (piece && !grouped && !stockById(p0.stock).fixed) editPiece(p => { p.L = Math.max(1, p.L - (e.shiftKey ? 12 : 1)); }); break;
         case ']':
-          if (piece && !stockById(p0.stock).fixed) editPiece(p => { p.L = Math.min(stockById(p.stock).maxL, p.L + (e.shiftKey ? 12 : 1)); }); break;
-        case 'd': case 'D': duplicateSel(); break;
-        case 'Delete': case 'Backspace': removeSel(); break;
+          if (piece && !grouped && !stockById(p0.stock).fixed) editPiece(p => { p.L = Math.min(stockById(p.stock).maxL, p.L + (e.shiftKey ? 12 : 1)); }); break;
+        case 'd': case 'D': if (grouped) copyGroup(); else duplicateSel(); break;
+        case 'Delete': case 'Backspace': if (grouped) deleteGroup(); else removeSel(); break;
         default: return;
       }
       e.preventDefault();
@@ -311,10 +417,13 @@ export default function App() {
                 render={ui.render} setRender={r => setUi({ render: r })}
                 camera={ui.camera} setCamera={c => setUi({ camera: c })}
                 snap={ui.snap} setSnap={v => setUi({ snap: v })}
+                groupMove={ui.groupMove} setGroupMove={v => setUi({ groupMove: v })}
+                tool={ui.tool} toolParams={ui.toolParams || {}} setTool={setTool} setToolParams={setToolParams} onPlaceTool={placeTool}
                 setSel={setSel} mutSel={mutSel} editPiece={editPiece}
-                addPart={addPart} addPiece={addPiece} removeSel={removeSel} duplicateSel={duplicateSel} dropSel={dropSel}
-                moveSel={moveSel} movePiece={movePiece}
+                addPart={addPart} addPiece={addPiece} removeSel={removeSel} duplicateSel={duplicateSel} dropSel={dropSel} explodeSel={explodeSel}
+                moveSel={moveSel} movePiece={movePiece} moveGroup={moveGroup}
                 onDragStart={() => dispatch({ type: 'mark' })} onDragEnd={() => dispatch({ type: 'commit' })}
+                moveGroupBy={moveGroupBy} rotateGroup={rotateGroup} deleteGroup={deleteGroup} ungroup={ungroup} copyGroup={copyGroup} dropGroup={dropGroup}
               />
             )}
             {ui.tab === 'parts' && (

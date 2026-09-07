@@ -213,6 +213,7 @@ kbd {
   border: 1px solid var(--line-2); cursor: pointer; background: var(--bg); user-select: none;
 }
 .palette-card:hover { background: var(--steel-tint); }
+.palette-card.on { border-color: var(--steel); background: var(--steel-tint); }
 
 .plan-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; touch-action: none; user-select: none; }
 .cell {

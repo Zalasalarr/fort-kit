@@ -4,8 +4,8 @@ import Pins from './Pins.jsx';
 
 export default function Viewport({
   parts, sel = -1, yard, pick = false, view = 'iso', zoom = 9,
-  mode = 'blueprint', camera = 'iso', snap = 12,
-  onSelect, onMove, onMovePiece, onDragStart, onDragEnd,
+  mode = 'blueprint', camera = 'iso', snap = 12, groupMove = true,
+  onSelect, onMove, onMovePiece, onMoveGroup, onDragStart, onDragEnd,
   marks = false, onPickPin, viewRef,
   caption, footer, emptyText, className = '', children,
 }) {
@@ -32,10 +32,17 @@ export default function Viewport({
     bv.onSelect = onSelect || null;
     bv.onMove = onMove || null;
     bv.onMovePiece = onMovePiece || null;
+    bv.onMoveGroup = onMoveGroup || null;
     bv.onDragStart = onDragStart || null;
     bv.onDragEnd = onDragEnd || null;
     bv.setSnap(snap);
   });
+
+  useEffect(() => {
+    if (!bv || bv.groupMove === groupMove) return;
+    bv.groupMove = groupMove;
+    bv.setParts(parts, sel);
+  }, [bv, groupMove, parts, sel]);
 
   useEffect(() => {
     if (bv) bv.setMode(mode);

@@ -96,6 +96,7 @@ export const STOCK = [
   { id: 'tube', n: '1" steel tube', cat: 'metal', mat: 'metal', T: 1, W: 1, L: 72, maxL: 240, lengths: [72, 96, 120, 144, 192, 240], price: 2.4, unit: 'ft' },
   { id: 'rope', n: '⅜" manila rope', cat: 'rope', mat: 'rope', T: .6, W: .6, L: 48, maxL: 600, lengths: [600], price: .35, unit: 'ft' },
   { id: 'hold', n: 'Climbing hold', cat: 'holds', mat: 'holds', T: 2.5, W: 3, L: 4, price: 3.5, unit: 'each', fixed: true, attach: true },
+  { id: 'corr', n: 'Corrugated panel', cat: 'sheet', mat: 'metal', T: .25, W: 26, L: 96, maxL: 144, maxW: 26, price: 24, unit: 'sheet' },
 ];
 
 export const QUICK_STOCK = ['2x4', '2x6', '4x4', 'ply12', 'brick', 'block', 'tube', 'rope', 'hold'];

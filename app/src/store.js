@@ -12,6 +12,7 @@ export function initState(project, tab, prefs = {}) {
       camera: prefs.camera === 'persp' ? 'persp' : 'iso',
       snap: [1, 6, 12].includes(prefs.snap) ? prefs.snap : 12,
       catalog: 'pieces',
+      groupMove: true, tool: null, toolParams: null, toolFor: null,
     },
   };
 }

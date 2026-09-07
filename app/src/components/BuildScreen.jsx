@@ -1,5 +1,6 @@
 import { MATS, PARTS, QUICK_STOCK, SNAPS, stockById } from '../data.js';
-import { partName, isPiece, pieceDims, pieceBottom, fmtIn } from '../logic.js';
+import { partName, isPiece, pieceDims, pieceBottom, fmtIn, groupIndices, unionAABB } from '../logic.js';
+import { TOOLS } from '../generators.js';
 import Viewport from './Viewport.jsx';
 
 const PALETTE = PARTS.filter(p => p.k !== 'mass').slice(0, 8);
@@ -16,30 +17,84 @@ function Stepper({ value, onDown, onUp, big, minWidth = 44 }) {
   );
 }
 
+function ToolForm({ toolId, params, setParams, onPlace, onCancel }) {
+  const t = TOOLS[toolId];
+  return (
+    <div style={{ padding: '10px 16px 12px', borderBottom: '1px solid var(--line)', background: 'var(--steel-tint)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+        <div style={{ font: '600 18px/1.1 "Barlow Condensed",sans-serif' }}>{t.n}</div>
+        <div className="btn-outline" style={{ padding: '4px 8px', fontSize: 11 }} onClick={onCancel}>Cancel</div>
+      </div>
+      <div style={{ font: '500 10px "IBM Plex Mono",monospace', color: 'var(--ink-55)', marginBottom: 10, lineHeight: 1.4 }}>{t.tip}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {t.params.map(p => (
+          <div key={p.k} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="mono" style={{ color: 'var(--grey)', width: 84, flex: 'none' }}>{p.n}</div>
+            {p.options ? (
+              <div style={{ display: 'flex', border: '1px solid var(--line-24)', flex: 1 }}>
+                {p.options.map(([v, n]) => (
+                  <div key={v} className={'seg' + (String(params[p.k]) === String(v) ? ' on' : '')} style={{ padding: '5px 4px', fontSize: 12 }} onClick={() => setParams({ [p.k]: v })}>{n}</div>
+                ))}
+              </div>
+            ) : (
+              <Stepper
+                value={fmtIn(params[p.k])} minWidth={60}
+                onDown={() => setParams({ [p.k]: Math.max(p.min, params[p.k] - p.step) })}
+                onUp={() => setParams({ [p.k]: Math.min(p.max, params[p.k] + p.step) })}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="btn-primary" style={{ marginTop: 12, padding: 11, fontSize: 14 }} onClick={onPlace}>Place {t.n.toLowerCase()}</div>
+    </div>
+  );
+}
+
 export default function BuildScreen({
   parts, sel, yard, maxLvl, marks, setMarks, render, setRender, camera, setCamera, snap, setSnap,
-  setSel, mutSel, editPiece, addPart, addPiece, removeSel, duplicateSel, dropSel,
-  moveSel, movePiece, onDragStart, onDragEnd,
+  groupMove, setGroupMove, tool, toolParams, setTool, setToolParams, onPlaceTool,
+  setSel, mutSel, editPiece, addPart, addPiece, removeSel, duplicateSel, dropSel, explodeSel,
+  moveSel, movePiece, moveGroup, onDragStart, onDragEnd,
+  moveGroupBy, rotateGroup, deleteGroup, ungroup, copyGroup, dropGroup,
 }) {
   const selPart = parts[sel];
   const piece = selPart && isPiece(selPart);
   const stock = piece ? stockById(selPart.stock) : null;
   const dims = piece ? pieceDims(selPart) : null;
+  const inGroup = piece && !!selPart.grp;
+  const grouped = inGroup && groupMove;
+  const gidx = inGroup ? groupIndices(parts, sel) : null;
+  const gBottom = grouped ? unionAABB(parts, gidx).min.y : 0;
   const off = selPart ? '' : ' disabled';
   const blueprint = render === 'blueprint';
   const persp = camera === 'persp';
   const snapLabel = snap === 12 ? '1 ft' : `${snap} in`;
+  const canExplode = selPart && !piece && selPart.k !== 'mass';
 
-  const moveBy = (dx, dz) => piece
-    ? editPiece(p => { p.cx += dx * snap; p.cz += dz * snap; }, false)
-    : mutSel(p => { p.x = +(p.x + dx * snap / 12).toFixed(3); p.z = +(p.z + dz * snap / 12).toFixed(3); });
+  const moveBy = (dx, dz) => {
+    if (grouped) return moveGroupBy({ dx: dx * snap, dy: 0, dz: dz * snap });
+    if (piece) return editPiece(p => { p.cx += dx * snap; p.cz += dz * snap; }, false);
+    return mutSel(p => { p.x = +(p.x + dx * snap / 12).toFixed(3); p.z = +(p.z + dz * snap / 12).toFixed(3); });
+  };
+  const heightBy = dy => {
+    if (grouped) return moveGroupBy({ dx: 0, dy: dy * snap, dz: 0 }, true);
+    if (piece) return editPiece(p => { p.cy += dy * snap; }, false, dy < 0);
+    return mutSel(p => { p.lvl = Math.max(0, Math.min(12, p.lvl + dy)); });
+  };
+  const turn = deg => {
+    if (grouped) return rotateGroup(deg);
+    if (piece) return editPiece(p => { p.yaw = ((p.yaw || 0) + deg) % 360; });
+    return mutSel(p => { p.rot = ((p.rot || 0) + 1) % 4; });
+  };
 
   return (
     <div className="editor">
       <Viewport
         parts={parts} sel={sel} yard={yard} pick
-        mode={render} camera={camera} snap={snap}
-        onSelect={setSel} onMove={moveSel} onMovePiece={movePiece} onDragStart={onDragStart} onDragEnd={onDragEnd}
+        mode={render} camera={camera} snap={snap} groupMove={groupMove}
+        onSelect={setSel} onMove={moveSel} onMovePiece={movePiece} onMoveGroup={moveGroup}
+        onDragStart={onDragStart} onDragEnd={onDragEnd}
         marks={marks} onPickPin={setSel}
         caption={`${persp ? 'Perspective' : 'Iso'} · ${snapLabel} snap · drag a part to move · drag space to orbit`}
         footer={`${parts.length} parts · ${maxLvl || 0} ft high`}
@@ -54,23 +109,47 @@ export default function BuildScreen({
 
       <div className="side">
         <div className="panel">
+          {tool && (
+            <ToolForm toolId={tool} params={toolParams} setParams={setToolParams} onPlace={onPlaceTool} onCancel={() => setTool(null)} />
+          )}
+
           {/* selected */}
           <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <div style={{ minWidth: 0 }}>
               <div className="mono" style={{ color: 'var(--steel)' }}>
-                Selected{selPart ? ` · ${MATS[selPart.mat].n}` : ''}
+                Selected{selPart ? ` · ${MATS[selPart.mat].n}` : ''}{inGroup ? ` · in ${selPart.gn} (${gidx.length})` : ''}
               </div>
               <div style={{ font: '600 18px/1.15 "Barlow Condensed",sans-serif', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {selPart ? partName(selPart) : 'Nothing selected'}
+                {selPart ? (grouped ? selPart.gn : partName(selPart)) : 'Nothing selected'}
               </div>
             </div>
             <div className={off} style={{ display: 'flex', gap: 6 }}>
-              <div className="btn-outline" title="Turn 90°" onClick={() => piece ? editPiece(p => { p.yaw = ((p.yaw || 0) + 90) % 360; }) : mutSel(p => { p.rot = ((p.rot || 0) + 1) % 4; })}>Turn</div>
-              {piece && <div className="btn-outline" title="Turn 15°" onClick={() => editPiece(p => { p.yaw = ((p.yaw || 0) + 15) % 360; })}>15°</div>}
-              <div className="btn-outline" onClick={duplicateSel}>Copy</div>
-              <div className="btn-outline" onClick={removeSel}>Delete</div>
+              <div className="btn-outline" title="Turn 90°" onClick={() => turn(90)}>Turn</div>
+              {piece && !grouped && <div className="btn-outline" title="Turn 15°" onClick={() => turn(15)}>15°</div>}
+              <div className="btn-outline" onClick={grouped ? copyGroup : duplicateSel}>Copy</div>
+              <div className="btn-outline" onClick={grouped ? deleteGroup : removeSel}>Delete</div>
             </div>
           </div>
+
+          {/* group controls */}
+          {inGroup && (
+            <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div className="mono" style={{ color: 'var(--grey)' }}>Edit</div>
+              <div style={{ display: 'flex', border: '1px solid var(--line-24)' }}>
+                <div className={'seg' + (groupMove ? ' on' : '')} style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => setGroupMove(true)}>Whole {selPart.gn.toLowerCase()}</div>
+                <div className={'seg' + (!groupMove ? ' on' : '')} style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => setGroupMove(false)}>One piece</div>
+              </div>
+              <div className="btn-outline" style={{ padding: '5px 8px', fontSize: 11 }} onClick={ungroup}>Ungroup</div>
+            </div>
+          )}
+
+          {/* assembly: explode */}
+          {canExplode && (
+            <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div className="btn-outline" onClick={explodeSel}>Explode into pieces</div>
+              <div style={{ font: '500 10px "IBM Plex Mono",monospace', color: 'var(--ink-55)', lineHeight: 1.4 }}>Rebuilds this part from real lumber, sheets, bricks or holds.</div>
+            </div>
+          )}
 
           {/* move & height */}
           <div className={'grid-2' + off} style={{ borderBottom: '1px solid var(--line)' }}>
@@ -98,22 +177,20 @@ export default function BuildScreen({
             <div style={{ padding: '9px 16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                 <div className="mono" style={{ color: 'var(--grey)' }}>Height</div>
-                {piece && <div className="btn-outline" style={{ padding: '3px 8px', fontSize: 10.5 }} title="Rest on whatever is underneath" onClick={dropSel}>Drop</div>}
+                {piece && <div className="btn-outline" style={{ padding: '3px 8px', fontSize: 10.5 }} title="Rest on whatever is underneath" onClick={grouped ? dropGroup : dropSel}>Drop</div>}
               </div>
               {piece ? (
-                <Stepper big value={pieceBottom(selPart) < .5 ? 'ground' : fmtIn(pieceBottom(selPart))} minWidth={64}
-                  onDown={() => editPiece(p => { p.cy -= snap; }, false, true)}
-                  onUp={() => editPiece(p => { p.cy += snap; }, false)} />
+                <Stepper big minWidth={64}
+                  value={(grouped ? gBottom : pieceBottom(selPart)) < .5 ? 'ground' : fmtIn(grouped ? gBottom : pieceBottom(selPart))}
+                  onDown={() => heightBy(-1)} onUp={() => heightBy(1)} />
               ) : (
-                <Stepper big value={selPart ? `${selPart.lvl} ft` : '—'}
-                  onDown={() => mutSel(p => { p.lvl = Math.max(0, p.lvl - 1); })}
-                  onUp={() => mutSel(p => { p.lvl = Math.min(12, p.lvl + 1); })} />
+                <Stepper big value={selPart ? `${selPart.lvl} ft` : '—'} onDown={() => heightBy(-1)} onUp={() => heightBy(1)} />
               )}
             </div>
           </div>
 
           {/* piece: orientation & size */}
-          {piece && (
+          {piece && !grouped && (
             <div style={{ padding: '10px 16px 10px', borderBottom: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 9 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div className="mono" style={{ color: 'var(--grey)', width: 62, flex: 'none' }}>Angle</div>
@@ -168,6 +245,22 @@ export default function BuildScreen({
               </div>
             </div>
           )}
+
+          {/* tools */}
+          <div style={{ padding: '10px 0 6px', borderBottom: '1px solid var(--line)' }}>
+            <div className="mono" style={{ color: 'var(--grey)', margin: '0 16px 8px' }}>Build with a tool · lays real pieces</div>
+            <div className="palette">
+              {Object.keys(TOOLS).map(id => (
+                <div key={id} className={'palette-card' + (tool === id ? ' on' : '')} style={{ width: 96 }} onClick={() => setTool(id)}>
+                  <div style={{ height: 3, width: 26, background: 'var(--ink)', marginBottom: 8 }} />
+                  <div style={{ font: '600 15px/1.1 "Barlow Condensed",sans-serif', marginBottom: 3 }}>{TOOLS[id].n}</div>
+                  <div style={{ font: '500 10px "IBM Plex Mono",monospace', color: 'var(--ink-55)' }}>
+                    {TOOLS[id].params.filter(p => !p.options).map(p => p.n.toLowerCase()).join(' · ')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* add a piece */}
           <div style={{ padding: '10px 0 6px', borderBottom: '1px solid var(--line)' }}>

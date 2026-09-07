@@ -1,5 +1,5 @@
 import { MATS } from '../data.js';
-import { partName, costOf, money, heightLabel, positionLabel, isPiece } from '../logic.js';
+import { partName, money, heightLabel, positionLabel, isPiece, partRows } from '../logic.js';
 
 export default function PrintSheet({ project, snapshot, cuts, buys = [], checks, total }) {
   const { parts, yard } = project;
@@ -29,16 +29,19 @@ export default function PrintSheet({ project, snapshot, cuts, buys = [], checks,
           <h2>Parts</h2>
           <table>
             <tbody>
-              {parts.map((p, i) => (
-                <tr key={i}>
-                  <td>{i + 1}</td>
-                  <td>{partName(p)}</td>
-                  <td>{MATS[p.mat].n}</td>
-                  <td>{heightLabel(p)}</td>
-                  <td>at {positionLabel(p)}{isPiece(p) ? (p.yaw ? ` · ${p.yaw}°` : '') + (p.pitch ? ` · ${p.pitch === 90 ? 'upright' : p.pitch + '° pitch'}` : '') + (p.roll ? ' · on edge' : '') : (p.rot ? ` · turned ${p.rot * 90}°` : '')}</td>
-                  <td className="num">${money(costOf(p))}</td>
-                </tr>
-              ))}
+              {partRows(parts).map((r, n) => {
+                const p = r.p;
+                return (
+                  <tr key={n}>
+                    <td>{n + 1}</td>
+                    <td>{p ? partName(p) : r.a}</td>
+                    <td>{p ? MATS[p.mat].n : `${r.group.indices.length} pieces`}</td>
+                    <td>{p ? heightLabel(p) : heightLabel(parts[r.group.indices[0]])}</td>
+                    <td>{p ? `at ${positionLabel(p)}${isPiece(p) ? (p.yaw ? ` · ${p.yaw}°` : '') + (p.pitch ? ` · ${p.pitch === 90 ? 'upright' : p.pitch + '° pitch'}` : '') + (p.roll ? ' · on edge' : '') : (p.rot ? ` · turned ${p.rot * 90}°` : '')}` : 'built from real pieces'}</td>
+                    <td className="num">${money(r.cost)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </section>
