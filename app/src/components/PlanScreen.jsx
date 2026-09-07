@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { MATS, PLAN_N } from '../data.js';
+import { MATS, BUILD_MATS, PLAN_N } from '../data.js';
 import { massParts, planStats } from '../logic.js';
 import Viewport from './Viewport.jsx';
 
@@ -92,7 +92,7 @@ export default function PlanScreen({ cells, brush, setBrush, patchCells, mark, c
           </div>
 
           <div style={{ display: 'flex', gap: 6 }}>
-            {Object.keys(MATS).map(k => (
+            {BUILD_MATS.map(k => (
               <div key={k} className={'chip' + (brush.mat === k ? ' on' : '')} onClick={() => setBrush({ mat: k })}>
                 <span className="dot" style={{ background: MATS[k].c }} />{MATS[k].n}
               </div>

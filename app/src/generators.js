@@ -88,6 +88,24 @@ export const TOOLS = {
       { k: 'W', n: 'Width', def: 36, min: 24, max: 48, step: 6 },
     ],
   },
+  bunkbed: {
+    n: 'Bunk bed', tip: '4×4 posts, 2×6 rails, 1×3 slats, real mattresses, a guard rail round the top bunk and a ladder at one end.',
+    params: [
+      { k: 'W', n: 'Mattress', def: 38, options: [[38, 'Twin'], [54, 'Full']] },
+      { k: 'L', n: 'Length', def: 75, options: [[75, '75 in'], [80, '80 in XL']] },
+      { k: 'H', n: 'Top bunk height', def: 60, min: 36, max: 84, step: 6 },
+      { k: 'bunks', n: 'Bunks', def: 2, options: [[2, 'Two bunks'], [1, 'Loft only']] },
+    ],
+  },
+  counter: {
+    n: 'Outdoor counter', tip: '2×4 frame with plywood ends, back and deck, a concrete countertop with a 1" front overhang, and cabinet doors every 24". Set grills, sinks and fridges on or in front of it.',
+    params: [
+      { k: 'L', n: 'Length', def: 72, min: 36, max: 144, step: 12 },
+      { k: 'H', n: 'Height', def: 36, min: 30, max: 42, step: 3 },
+      { k: 'D', n: 'Counter depth', def: 25, min: 24, max: 30, step: 1 },
+      { k: 'doors', n: 'Front', def: 'doors', options: [['doors', 'Doors'], ['open', 'Open shelves']] },
+    ],
+  },
 };
 
 export function defaultParams(toolId) {
@@ -234,6 +252,66 @@ export function stairs({ H, W }) {
   return out;
 }
 
+export function bunkBed({ W = 38, L = 75, H = 60, bunks = 2 }) {
+  W = +W; L = +L; H = +H; bunks = +bunks;
+  const out = [];
+  const mattress = W >= 54 ? 'mat_full' : (L >= 80 ? 'mat_twinxl' : 'mat_twin');
+  const px = L / 2 + 1.75, pz = W / 2 + 1.75;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) out.push(piece('4x4', { L: H + 16, x: sx * px, z: sz * pz, pitch: 90 }));
+  const decks = bunks === 2 ? [16, H] : [H];
+  decks.forEach(h => {
+    for (const sz of [-1, 1]) out.push(piece('2x6', { L, z: sz * (W / 2 + .75), y: h - 5.5, roll: 90 }));
+    for (const sx of [-1, 1]) out.push(piece('2x6', { L: W, x: sx * (L / 2 + .75), y: h - 5.5, roll: 90, yaw: 90 }));
+    for (let x = -L / 2 + 2; x <= L / 2 - 2; x += 5.5) out.push(piece('1x3', { L: W, x, y: h - .75, yaw: 90 }));
+    out.push(piece(mattress, { y: h }));
+  });
+  // guard rails round the top bunk (long sides and the end away from the ladder)
+  for (const y of [H + 8, H + 14]) {
+    for (const sz of [-1, 1]) out.push(piece('2x4', { L, z: sz * (W / 2 + .75), y }));
+    out.push(piece('2x4', { L: W, x: -(L / 2 + .75), y, yaw: 90 }));
+  }
+  // ladder on the +X end
+  const lx = px + 1.75 + .75;
+  for (const sz of [-1, 1]) out.push(piece('2x4', { L: H + 4, x: lx, z: sz * 8, pitch: 90, yaw: 90 }));
+  for (let y = 10; y <= H - 2; y += 10) out.push(piece('2x2', { L: 14.5, x: lx, y: y - .75, yaw: 90 }));
+  return out;
+}
+
+export function counter({ L = 72, H = 36, D = 25, doors = 'doors' }) {
+  L = +L; H = +H; D = +D;
+  const out = [];
+  const Db = D - 1;                       // base cabinet depth; the slab overhangs the front by 1"
+  const studL = H - 5.25;                 // plates 3", deck ¾", slab 1½"
+  for (const sz of [-1, 1]) {
+    const z = sz * (Db / 2 - 1.75);
+    out.push(piece('2x4', { L: L - 1.5, z, y: 0 }));
+    out.push(piece('2x4', { L: L - 1.5, z, y: H - 3.75 }));
+    const xs = [];
+    for (let x = -L / 2 + 1.5; x < L / 2 - 1.5 - 1; x += 24) xs.push(x);
+    xs.push(L / 2 - 1.5);
+    xs.forEach(x => out.push(piece('2x4', { L: studL, x, z, y: 1.5, pitch: 90 })));
+  }
+  for (const sx of [-1, 1]) out.push(piece('ply34', { L: H - 2.25, W: Db, x: sx * (L / 2 - .375), y: 0, pitch: 90 }));
+  let bx = -L / 2;
+  while (bx < L / 2 - .01) {
+    const w = Math.min(96, L / 2 - bx);
+    out.push(piece('ply12', { L: H - 2.25, W: w, x: bx + w / 2, z: -(Db / 2 - .25), y: 0, pitch: 90, yaw: 90 }));
+    bx += w;
+  }
+  out.push(piece('ply34', { L, W: Db, y: H - 2.25 }));
+  out.push(piece('counter', { L, W: D, z: .5, y: H - 1.5 }));
+  if (doors === 'doors') {
+    const n = Math.max(1, Math.floor((L - 2) / 24.5));
+    const start = -(n * 24.5 - .5) / 2 + 12;
+    for (let k = 0; k < n; k++) {
+      const p = piece('cabdoor', { x: start + k * 24.5, z: Db / 2 + .375, roll: 90 });
+      p.cy = 4 + 15;
+      out.push(p);
+    }
+  }
+  return out;
+}
+
 export function generate(toolId, params) {
   switch (toolId) {
     case 'brickwall': return brickWall(params);
@@ -243,6 +321,8 @@ export function generate(toolId, params) {
     case 'roof': return roof(params);
     case 'railing': return railing(params);
     case 'stairs': return stairs(params);
+    case 'bunkbed': return bunkBed(params);
+    case 'counter': return counter(params);
     default: return [];
   }
 }

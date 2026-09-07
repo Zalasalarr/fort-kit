@@ -156,6 +156,10 @@ const MAT_PROPS = {
   metal: { roughness: .42, metalness: .55 },
   rope: { roughness: .95, metalness: 0 },
   holds: { roughness: .55, metalness: 0, color: '#2c455d' },
+  appliance: { roughness: .32, metalness: .7, color: '#c3c7cb' },
+  clay: { roughness: .92, metalness: 0, color: '#b97a5e' },
+  stone: { roughness: .75, metalness: 0, color: '#b8bab5' },
+  fabric: { roughness: 1, metalness: 0, color: '#dfe3ea' },
 };
 
 export const HOLD_COLORS = ['#d9503c', '#3b7fd6', '#e6b73a', '#3ea86c', '#8b53d6', '#f08a3c'];

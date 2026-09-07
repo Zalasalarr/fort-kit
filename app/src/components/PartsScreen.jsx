@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { MATS, PARTS, STOCK } from '../data.js';
 import { fmtIn } from '../logic.js';
 
-const CATS = { lumber: 'Lumber', sheet: 'Sheets', masonry: 'Masonry', metal: 'Metal', rope: 'Rope', holds: 'Holds' };
+const CATS = { lumber: 'Lumber', sheet: 'Sheets', masonry: 'Masonry', metal: 'Metal', rope: 'Rope', holds: 'Holds', kitchen: 'Outdoor kitchen', clay: 'Clay & tile', bed: 'Beds & play' };
 
 export default function PartsScreen({ filter, setFilter, addPart, addPiece, catalog, setCatalog, library = [], onPlaceCustom, onRenameCustom, onDeleteCustom, onSharePart, onExportLibrary, onImportFile }) {
   const [editing, setEditing] = useState(null);
@@ -110,12 +110,14 @@ export default function PartsScreen({ filter, setFilter, addPart, addPiece, cata
             )}
             <div style={{ display: 'flex', gap: 12, padding: '10px 16px', borderBottom: '1px solid rgba(29,31,32,.12)', alignItems: 'center' }}>
               <div style={{ flex: 'none', width: 52, height: 52, border: '1px solid var(--line-2)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 6, background: 'var(--bg)' }}>
-                <div style={{ width: gw, height: gh, background: MATS[s.mat].c, border: '1px solid rgba(29,31,32,.3)' }} />
+                <div style={{ width: gw, height: gh, background: s.color || MATS[s.mat].c, border: '1px solid rgba(29,31,32,.3)' }} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ font: '600 18px/1.1 "Barlow Condensed",sans-serif' }}>{s.n}</div>
                 <div style={{ font: '500 11px "IBM Plex Mono",monospace', color: 'var(--ink-55)', marginTop: 2 }}>
-                  {s.T} × {s.W} in{s.unit === 'each' ? ` × ${s.L} in` : ` · ${fmtIn(s.L)}${s.maxL > s.L ? ` (up to ${fmtIn(s.maxL)})` : ''}`} · {price(s)}
+                  {s.shape || ['kitchen', 'bed'].includes(s.cat)
+                    ? `${s.L} wide × ${s.W} deep × ${s.T} in high`
+                    : `${s.T} × ${s.W} in${s.unit === 'each' ? ` × ${s.L} in` : ` · ${fmtIn(s.L)}${s.maxL > s.L ? ` (up to ${fmtIn(s.maxL)})` : ''}`}`} · {price(s)}{s.attach ? ' · sticks to a face' : ''}
                 </div>
               </div>
               <div

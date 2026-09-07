@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MATS, PARTS, QUICK_STOCK, SNAPS, stockById } from '../data.js';
+import { MATS, BUILD_MATS, PARTS, QUICK_STOCK, QUICK_FIXTURES, SNAPS, stockById } from '../data.js';
 import { partName, isPiece, pieceDims, pieceBottom, fmtIn, groupIndices, unionAABB } from '../logic.js';
 import { TOOLS } from '../generators.js';
 import Viewport from './Viewport.jsx';
@@ -248,7 +248,7 @@ export default function BuildScreen({
             <div className={off} style={{ padding: '10px 16px 8px', borderBottom: '1px solid var(--line)' }}>
               <div className="mono" style={{ color: 'var(--grey)', marginBottom: 7 }}>Material</div>
               <div style={{ display: 'flex', gap: 6 }}>
-                {Object.keys(MATS).map(k => (
+                {BUILD_MATS.map(k => (
                   <div key={k} className={'chip' + (selPart && selPart.mat === k ? ' on' : '')} onClick={() => mutSel(p => { p.mat = k; })}>
                     <span className="dot" style={{ background: MATS[k].c }} />
                     {MATS[k].n}
@@ -332,6 +332,26 @@ export default function BuildScreen({
                     <div style={{ height: 3, width: 26, background: MATS[s.mat].c, border: '1px solid rgba(29,31,32,.25)', marginBottom: 8 }} />
                     <div style={{ font: '600 15px/1.1 "Barlow Condensed",sans-serif', marginBottom: 3 }}>{s.n}</div>
                     <div style={{ font: '500 10px "IBM Plex Mono",monospace', color: 'var(--ink-55)' }}>{s.T}×{s.W} in</div>
+                    <div style={{ font: '500 10px "IBM Plex Mono",monospace', color: 'var(--steel-deep)', marginTop: 4 }}>
+                      ${s.price}{s.unit === 'ft' ? '/ft' : s.unit === 'sheet' ? '/sheet' : ' ea'}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* add a fixture */}
+          <div style={{ padding: '10px 0 6px', borderBottom: '1px solid var(--line)' }}>
+            <div className="mono" style={{ color: 'var(--grey)', margin: '0 16px 8px' }}>Add a fixture · kitchen, beds &amp; play</div>
+            <div className="palette">
+              {QUICK_FIXTURES.map(id => {
+                const s = stockById(id);
+                return (
+                  <div key={id} className="palette-card" style={{ width: 104 }} onClick={() => addPiece(id)}>
+                    <div style={{ height: 3, width: 26, background: s.color || MATS[s.mat].c, border: '1px solid rgba(29,31,32,.25)', marginBottom: 8 }} />
+                    <div style={{ font: '600 15px/1.1 "Barlow Condensed",sans-serif', marginBottom: 3 }}>{s.n}</div>
+                    <div style={{ font: '500 10px "IBM Plex Mono",monospace', color: 'var(--ink-55)' }}>{s.L}×{s.W}×{s.T} in</div>
                     <div style={{ font: '500 10px "IBM Plex Mono",monospace', color: 'var(--steel-deep)', marginTop: 4 }}>
                       ${s.price}{s.unit === 'ft' ? '/ft' : s.unit === 'sheet' ? '/sheet' : ' ea'}
                     </div>

@@ -498,9 +498,16 @@ export class BuildView {
     let opts = {};
     if (this.real) {
       if (s.cat === 'masonry') opts = { color: MASONRY_COLORS[s.id] };
-      else if (s.attach) opts = { color: holdColor(i) };
+      else if (s.id === 'hold') opts = { color: holdColor(i) };
+      else if (s.color) opts = { color: s.color };
     }
-    this.box(g, p.mat, L / 12, T / 12, W / 12, 0, -T / 24, 0, opts);
+    if (s.shape) {
+      // Fixture made of a few boxes; y in the shape is height above the envelope's underside
+      s.shape.forEach(b => this.box(g, p.mat, b.w / 12, b.h / 12, b.d / 12, (b.x || 0) / 12, (-T / 2 + (b.y || 0)) / 12, (b.z || 0) / 12,
+        this.real && (b.color || s.color) ? { color: b.color || s.color } : opts));
+    } else {
+      this.box(g, p.mat, L / 12, T / 12, W / 12, 0, -T / 24, 0, opts);
+    }
     g.position.set(p.cx / 12, p.cy / 12, p.cz / 12);
     g.rotation.set(rad(p.roll || 0), rad(p.yaw || 0), rad(p.pitch || 0), 'YZX');
     return g;
