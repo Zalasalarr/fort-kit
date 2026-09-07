@@ -97,6 +97,14 @@ export const TOOLS = {
       { k: 'bunks', n: 'Bunks', def: 2, options: [[2, 'Two bunks'], [1, 'Loft only']] },
     ],
   },
+  stringlights: {
+    n: 'String lights', tip: 'A swagged run of bulbs between two points, with optional poles at each end. Cost is per foot of string.',
+    params: [
+      { k: 'L', n: 'Span', def: 120, min: 48, max: 480, step: 12 },
+      { k: 'H', n: 'Height', def: 96, min: 60, max: 144, step: 6 },
+      { k: 'poles', n: 'Poles', def: 'tube', options: [['none', 'None'], ['tube', 'Steel poles'], ['4x4', '4×4 posts']] },
+    ],
+  },
   counter: {
     n: 'Outdoor counter', tip: '2×4 frame with plywood ends, back and deck, a concrete countertop with a 1" front overhang, and cabinet doors every 24". Set grills, sinks and fridges on or in front of it.',
     params: [
@@ -312,6 +320,15 @@ export function counter({ L = 72, H = 36, D = 25, doors = 'doors' }) {
   return out;
 }
 
+export function stringLights({ L = 120, H = 96, poles = 'tube' }) {
+  L = +L; H = +H;
+  const out = [piece('string', { L, y: H - 12 })];
+  if (poles !== 'none') {
+    for (const sx of [-1, 1]) out.push(piece(poles === '4x4' ? '4x4' : 'tube', { L: H + 2, x: sx * (L / 2 + (poles === '4x4' ? 1.75 : .5)), pitch: 90 }));
+  }
+  return out;
+}
+
 export function generate(toolId, params) {
   switch (toolId) {
     case 'brickwall': return brickWall(params);
@@ -323,6 +340,7 @@ export function generate(toolId, params) {
     case 'stairs': return stairs(params);
     case 'bunkbed': return bunkBed(params);
     case 'counter': return counter(params);
+    case 'stringlights': return stringLights(params);
     default: return [];
   }
 }

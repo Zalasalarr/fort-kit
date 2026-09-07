@@ -10,6 +10,7 @@ export function initState(project, tab, prefs = {}) {
       tab, sel: 0, filter: 'all', brush: { mat: 'wood', h: 4 }, marks: false, specTab: 'parts',
       render: prefs.render === 'blueprint' ? 'blueprint' : 'real',
       camera: prefs.camera === 'persp' ? 'persp' : 'iso',
+      evening: prefs.evening === true,
       snap: [1, 6, 12].includes(prefs.snap) ? prefs.snap : 12,
       catalog: 'pieces',
       groupMove: true, tool: null, toolParams: null, toolFor: null,

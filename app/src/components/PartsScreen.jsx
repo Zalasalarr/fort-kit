@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { MATS, PARTS, STOCK } from '../data.js';
 import { fmtIn } from '../logic.js';
 
-const CATS = { lumber: 'Lumber', sheet: 'Sheets', masonry: 'Masonry', metal: 'Metal', rope: 'Rope', holds: 'Holds', kitchen: 'Outdoor kitchen', clay: 'Clay & tile', bed: 'Beds & play' };
+const CATS = { lumber: 'Lumber', sheet: 'Sheets', masonry: 'Masonry', metal: 'Metal', rope: 'Rope', holds: 'Holds', kitchen: 'Outdoor kitchen', clay: 'Clay & tile', bed: 'Beds & play', light: 'Lighting & shade' };
 
 export default function PartsScreen({ filter, setFilter, addPart, addPiece, catalog, setCatalog, library = [], onPlaceCustom, onRenameCustom, onDeleteCustom, onSharePart, onExportLibrary, onImportFile }) {
   const [editing, setEditing] = useState(null);
@@ -115,7 +115,7 @@ export default function PartsScreen({ filter, setFilter, addPart, addPiece, cata
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ font: '600 18px/1.1 "Barlow Condensed",sans-serif' }}>{s.n}</div>
                 <div style={{ font: '500 11px "IBM Plex Mono",monospace', color: 'var(--ink-55)', marginTop: 2 }}>
-                  {s.shape || ['kitchen', 'bed'].includes(s.cat)
+                  {s.unit !== 'ft' && (s.shape || ['kitchen', 'bed', 'light'].includes(s.cat))
                     ? `${s.L} wide × ${s.W} deep × ${s.T} in high`
                     : `${s.T} × ${s.W} in${s.unit === 'each' ? ` × ${s.L} in` : ` · ${fmtIn(s.L)}${s.maxL > s.L ? ` (up to ${fmtIn(s.maxL)})` : ''}`}`} · {price(s)}{s.attach ? ' · sticks to a face' : ''}
                 </div>

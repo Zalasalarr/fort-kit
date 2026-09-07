@@ -9,6 +9,7 @@ export const MATS = {
   clay: { n: 'Clay', c: '#8c6b60', rate: 1.2, fixture: true },
   stone: { n: 'Stone', c: '#a9adb3', rate: 1.6, fixture: true },
   fabric: { n: 'Fabric', c: '#c4cbd6', rate: 1, fixture: true },
+  light: { n: 'Lighting', c: '#e2cf86', rate: 1, fixture: true },
 };
 
 export const BUILD_MATS = Object.keys(MATS).filter(k => !MATS[k].fixture);
@@ -154,7 +155,52 @@ export const STOCK = [
     shape: [{ w: 36, h: 14, d: 36 }, { w: 28, h: 10, d: 28, y: 14, color: '#b84f4f' }] },
 ];
 
-export const QUICK_FIXTURES = ['grill_drop', 'traeger', 'pizza_oven', 'fridge', 'counter', 'cabdoor', 'mat_twin', 'pillow', 'beanbag'];
+// A sagging cord between the two top corners of the envelope, with a bulb every 12"
+function stringLightShape({ L, T }) {
+  const sag = T - 4, n = Math.max(6, Math.round(L / 10));
+  const yAt = x => T - sag * (1 - Math.pow((2 * x) / L, 2)) - .15;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const x0 = -L / 2 + (i * L) / n, x1 = -L / 2 + ((i + 1) * L) / n;
+    const y0 = yAt(x0), y1 = yAt(x1);
+    out.push({ w: Math.hypot(x1 - x0, y1 - y0) + .2, h: .3, d: .3, x: (x0 + x1) / 2, y: (y0 + y1) / 2, rz: Math.atan2(y1 - y0, x1 - x0), center: true, color: '#2a2c2f' });
+  }
+  for (let x = -L / 2 + 6; x <= L / 2 - 6; x += 12) {
+    const y = yAt(x);
+    out.push({ w: 1, h: 1.4, d: 1, x, y: y - 1.4, color: '#3a3d40' });
+    out.push({ w: 1.8, h: 2.6, d: 1.8, x, y: y - 4, color: '#ffe6a3', glow: true });
+  }
+  return out;
+}
+
+const LANTERN_CAGE = (w, h, y0 = 0, glass = '#ffe2a0') => [
+  { w: w + .5, h: .6, d: w + .5, y: y0, color: '#2b2d30' }, { w: w + .5, h: .6, d: w + .5, y: y0 + h - .6, color: '#2b2d30' },
+  { w: .4, h, d: .4, x: -w / 2, z: -w / 2, y: y0, color: '#2b2d30' }, { w: .4, h, d: .4, x: w / 2, z: -w / 2, y: y0, color: '#2b2d30' },
+  { w: .4, h, d: .4, x: -w / 2, z: w / 2, y: y0, color: '#2b2d30' }, { w: .4, h, d: .4, x: w / 2, z: w / 2, y: y0, color: '#2b2d30' },
+  { w: w - .6, h: h - 1.2, d: w - .6, y: y0 + .6, color: glass, glow: true },
+];
+
+STOCK.push(
+  /* ---- lighting & shade ---- */
+  { id: 'string', n: 'String lights', cat: 'light', mat: 'light', T: 12, W: 2, L: 240, maxL: 600, lengths: [288, 576], price: 1.2, unit: 'ft', color: '#2a2c2f', shape: stringLightShape },
+  { id: 'lantern_hang', n: 'Hanging lantern', cat: 'light', mat: 'light', T: 10, W: 6, L: 6, price: 28, unit: 'each', fixed: true, color: '#2b2d30',
+    shape: [{ w: .5, h: 3, d: .5, y: 7, color: '#2b2d30' }, ...LANTERN_CAGE(5, 7)] },
+  { id: 'sconce', n: 'Wall lantern', cat: 'light', mat: 'light', T: 5, W: 12, L: 6, price: 45, unit: 'each', fixed: true, attach: true, color: '#2b2d30',
+    shape: [{ w: 5, h: 11, d: .5, z: -2.2, color: '#2b2d30' }, ...LANTERN_CAGE(4, 8, 1.5).map(b => ({ ...b, z: (b.z || 0) + .3 }))] },
+  { id: 'lantern_table', n: 'Table lantern', cat: 'light', mat: 'light', T: 12, W: 6, L: 6, price: 22, unit: 'each', fixed: true, color: '#2b2d30',
+    shape: [...LANTERN_CAGE(5, 10), { w: 4, h: .5, d: .5, y: 11.2, color: '#2b2d30' }] },
+  { id: 'pathlight', n: 'Solar path light', cat: 'light', mat: 'light', T: 17, W: 4, L: 4, price: 12, unit: 'each', fixed: true, color: '#3a3d40',
+    shape: [{ w: .6, h: 10, d: .6, color: '#3a3d40' }, { w: 1, h: 4, d: 1, y: 10, color: '#3a3d40' }, { w: 3, h: 2, d: 3, y: 13.5, color: '#ffe6a3', glow: true }, { w: 4, h: 1.2, d: 4, y: 15.5, color: '#3a3d40' }] },
+  { id: 'tiki', n: 'Tiki torch 5 ft', cat: 'light', mat: 'light', T: 62, W: 4, L: 4, price: 15, unit: 'each', fixed: true, color: '#8a6a45',
+    shape: [{ w: 1.5, h: 52, d: 1.5, color: '#8a6a45' }, { w: 4, h: 6, d: 4, y: 52, color: '#3a3d40' }, { w: 2.5, h: 4, d: 2.5, y: 58, color: '#ffb347', glow: true }] },
+  { id: 'umbrella_cant', n: 'Cantilever umbrella 10 ft', cat: 'light', mat: 'fabric', T: 100, W: 120, L: 140, price: 450, unit: 'each', fixed: true, color: '#c9c2ae',
+    shape: [{ w: 26, h: 3, d: 26, x: -57, color: '#8a8d90' }, { w: 3, h: 96, d: 3, x: -57, y: 3, color: '#3a3d40' }, { w: 68, h: 3, d: 3, x: -25, y: 96, color: '#3a3d40' },
+      { w: 3, h: 6, d: 3, x: 9, y: 90, color: '#3a3d40' }, { w: 118, h: 2, d: 118, x: 10, y: 88 }, { w: 60, h: 1.5, d: 60, x: 10, y: 90, color: '#bdb59f' }] },
+  { id: 'umbrella', n: 'Patio umbrella 9 ft', cat: 'light', mat: 'fabric', T: 96, W: 108, L: 108, price: 120, unit: 'each', fixed: true, color: '#c9c2ae',
+    shape: [{ w: 20, h: 3, d: 20, color: '#8a8d90' }, { w: 2, h: 93, d: 2, y: 3, color: '#3a3d40' }, { w: 106, h: 2, d: 106, y: 84 }, { w: 54, h: 1.5, d: 54, y: 86, color: '#bdb59f' }, { w: 3, h: 3, d: 3, y: 93, color: '#3a3d40' }] },
+);
+
+export const QUICK_FIXTURES = ['grill_drop', 'traeger', 'pizza_oven', 'fridge', 'counter', 'cabdoor', 'mat_twin', 'beanbag', 'string', 'lantern_hang', 'umbrella_cant'];
 
 export const QUICK_STOCK = ['2x4', '2x6', '4x4', 'ply12', 'brick', 'block', 'tube', 'rope', 'hold'];
 

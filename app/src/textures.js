@@ -160,6 +160,7 @@ const MAT_PROPS = {
   clay: { roughness: .92, metalness: 0, color: '#b97a5e' },
   stone: { roughness: .75, metalness: 0, color: '#b8bab5' },
   fabric: { roughness: 1, metalness: 0, color: '#dfe3ea' },
+  light: { roughness: .45, metalness: .3, color: '#2b2d30' },
 };
 
 export const HOLD_COLORS = ['#d9503c', '#3b7fd6', '#e6b73a', '#3ea86c', '#8b53d6', '#f08a3c'];
@@ -170,9 +171,11 @@ export function holdColor(i) {
 
 // A textured PBR material whose pattern is scaled to the box's real-world size
 export function realMaterial(mat, w, h, d, opts = {}) {
-  const props = { ...MAT_PROPS[mat], ...opts };
+  const { glow, ...rest } = opts;
+  const props = { ...MAT_PROPS[mat], ...rest };
+  if (glow) { props.emissive = new THREE.Color(rest.color || '#ffe6a3'); props.emissiveIntensity = 1.1; props.roughness = .6; props.metalness = 0; }
   const factory = MAT_TEX[mat];
-  if (!factory || opts.color) return new THREE.MeshStandardMaterial(props);
+  if (!factory || rest.color) return new THREE.MeshStandardMaterial(props);
   const base = factory();
   const tile = base.userData.tileFt;
   const t = base.clone();

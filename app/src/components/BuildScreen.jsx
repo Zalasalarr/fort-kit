@@ -53,7 +53,7 @@ function ToolForm({ toolId, params, setParams, onPlace, onCancel }) {
 }
 
 export default function BuildScreen({
-  parts, sel, yard, maxLvl, marks, setMarks, render, setRender, camera, setCamera, snap, setSnap,
+  parts, sel, yard, maxLvl, marks, setMarks, render, setRender, camera, setCamera, evening, setEvening, snap, setSnap,
   groupMove, setGroupMove, tool, toolParams, setTool, setToolParams, onPlaceTool,
   setSel, mutSel, editPiece, addPart, addPiece, removeSel, duplicateSel, dropSel, explodeSel,
   moveSel, movePiece, moveGroup, onDragStart, onDragEnd,
@@ -104,7 +104,7 @@ export default function BuildScreen({
     <div className="editor">
       <Viewport
         parts={parts} sel={sel} yard={yard} pick
-        mode={render} camera={camera} snap={snap} groupMove={groupMove}
+        mode={render} camera={camera} snap={snap} groupMove={groupMove} evening={evening}
         onSelect={setSel} onMove={moveSel} onMovePiece={movePiece} onMoveGroup={moveGroup}
         onDragStart={onDragStart} onDragEnd={onDragEnd}
         marks={marks} onPickPin={setSel}
@@ -115,6 +115,7 @@ export default function BuildScreen({
         <div className="vp-tools">
           <div className={'btn-outline' + (blueprint ? ' on' : '')} onClick={() => setRender(blueprint ? 'real' : 'blueprint')}>Blueprint</div>
           <div className={'btn-outline' + (persp ? ' on' : '')} onClick={() => setCamera(persp ? 'iso' : 'persp')}>Persp</div>
+          {!blueprint && <div className={'btn-outline' + (evening ? ' on' : '')} onClick={() => setEvening(!evening)}>Evening</div>}
           <div className={'btn-outline' + (marks ? ' on' : '')} onClick={() => setMarks(!marks)}>Marks</div>
         </div>
       </Viewport>

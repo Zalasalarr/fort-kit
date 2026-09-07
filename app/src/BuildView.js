@@ -26,6 +26,7 @@ export class BuildView {
     this.mode = mode;
     this.cameraKind = camera;
     this.snap = snap;
+    this.evening = false;
     this.groupMove = true;
     this.parts = [];
     this.sel = -1;
@@ -96,14 +97,30 @@ export class BuildView {
   }
 
   _applyMode() {
-    const real = this.real;
-    this.scene.background = new THREE.Color(BG[this.mode]);
-    this.scene.fog = real ? new THREE.Fog(BG.real, 90, 240) : null;
+    const real = this.real, eve = real && this.evening;
+    const bg = eve ? '#2a3350' : BG[this.mode];
+    this.scene.background = new THREE.Color(bg);
+    this.scene.fog = real ? new THREE.Fog(bg, 90, 240) : null;
     this.lightsReal.visible = real;
     this.lightsBlueprint.visible = !real;
     this.renderer.shadowMap.enabled = real;
     this.renderer.toneMapping = real ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
-    this.renderer.toneMappingExposure = 1.0;
+    this.renderer.toneMappingExposure = eve ? .95 : 1.0;
+    const hemi = this.lightsReal.children[0];
+    if (eve) {
+      hemi.color.set('#6f80b3'); hemi.groundColor.set('#3a3630'); hemi.intensity = 1.15;
+      this.sun.color.set('#ffb070'); this.sun.intensity = 1.1; this.sun.position.set(-16, 9, -12);
+    } else {
+      hemi.color.set('#d8e7ff'); hemi.groundColor.set('#8f9a78'); hemi.intensity = 1.15;
+      this.sun.color.set('#fff2dc'); this.sun.intensity = 2.4; this.sun.position.set(18, 30, 12);
+    }
+  }
+
+  setEvening(on) {
+    if (on === this.evening) return;
+    this.evening = on;
+    this._applyMode();
+    this.draw();
   }
 
   setCamera(kind) {
@@ -472,21 +489,24 @@ export class BuildView {
   /* ---------- geometry ---------- */
 
   box(grp, mat, w, h, d, x, y, z, opts = {}) {
+    const { center, rz, ...mopts } = opts;
     const g = new THREE.BoxGeometry(w, h, d);
     let m;
     if (this.real) {
-      m = new THREE.Mesh(g, realMaterial(mat, w, h, d, opts));
+      m = new THREE.Mesh(g, realMaterial(mat, w, h, d, mopts));
       m.castShadow = true;
       m.receiveShadow = true;
     } else {
       m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: MATS[mat].c }));
     }
-    m.position.set(x, y + h / 2, z);
+    m.position.set(x, center ? y : y + h / 2, z);
+    if (rz) m.rotation.z = rz;
     grp.add(m);
     if (!this.real) {
       const e = new THREE.LineSegments(new THREE.EdgesGeometry(g),
         new THREE.LineBasicMaterial({ color: 0x1d1f20, transparent: true, opacity: .42 }));
       e.position.copy(m.position);
+      e.rotation.copy(m.rotation);
       grp.add(e);
     }
   }
@@ -503,8 +523,13 @@ export class BuildView {
     }
     if (s.shape) {
       // Fixture made of a few boxes; y in the shape is height above the envelope's underside
-      s.shape.forEach(b => this.box(g, p.mat, b.w / 12, b.h / 12, b.d / 12, (b.x || 0) / 12, (-T / 2 + (b.y || 0)) / 12, (b.z || 0) / 12,
-        this.real && (b.color || s.color) ? { color: b.color || s.color } : opts));
+      const boxes = typeof s.shape === 'function' ? s.shape({ L, T, W }) : s.shape;
+      boxes.forEach(b => {
+        const o = this.real && (b.color || s.color) ? { color: b.color || s.color, glow: !!b.glow } : { ...opts };
+        if (b.center) o.center = true;
+        if (b.rz) o.rz = b.rz;
+        this.box(g, p.mat, b.w / 12, b.h / 12, b.d / 12, (b.x || 0) / 12, (-T / 2 + (b.y || 0)) / 12, (b.z || 0) / 12, o);
+      });
     } else {
       this.box(g, p.mat, L / 12, T / 12, W / 12, 0, -T / 24, 0, opts);
     }

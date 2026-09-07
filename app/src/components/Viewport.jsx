@@ -4,7 +4,7 @@ import Pins from './Pins.jsx';
 
 export default function Viewport({
   parts, sel = -1, yard, pick = false, view = 'iso', zoom = 9,
-  mode = 'blueprint', camera = 'iso', snap = 12, groupMove = true,
+  mode = 'blueprint', camera = 'iso', snap = 12, groupMove = true, evening = false,
   onSelect, onMove, onMovePiece, onMoveGroup, onDragStart, onDragEnd,
   marks = false, onPickPin, viewRef,
   caption, footer, emptyText, className = '', children,
@@ -51,6 +51,10 @@ export default function Viewport({
   useEffect(() => {
     if (bv) bv.setCamera(camera);
   }, [bv, camera]);
+
+  useEffect(() => {
+    if (bv) bv.setEvening(evening);
+  }, [bv, evening]);
 
   useEffect(() => {
     if (bv && yard) {

@@ -302,8 +302,8 @@ export default function App() {
   };
 
   useEffect(() => {
-    savePrefs({ render: ui.render, camera: ui.camera, snap: ui.snap });
-  }, [ui.render, ui.camera, ui.snap]);
+    savePrefs({ render: ui.render, camera: ui.camera, snap: ui.snap, evening: ui.evening });
+  }, [ui.render, ui.camera, ui.snap, ui.evening]);
 
   // A share link pasted into the running app is imported as a new project
   useEffect(() => {
@@ -660,6 +660,7 @@ export default function App() {
                 marks={ui.marks} setMarks={m => setUi({ marks: m })}
                 render={ui.render} setRender={r => setUi({ render: r })}
                 camera={ui.camera} setCamera={c => setUi({ camera: c })}
+                evening={ui.evening} setEvening={v => setUi({ evening: v })}
                 snap={ui.snap} setSnap={v => setUi({ snap: v })}
                 groupMove={ui.groupMove} setGroupMove={v => setUi({ groupMove: v })}
                 tool={ui.tool} toolParams={ui.toolParams || {}} setTool={setTool} setToolParams={setToolParams} onPlaceTool={placeTool}
@@ -685,7 +686,7 @@ export default function App() {
             )}
             {ui.tab === 'sheet' && (
               <SheetScreen
-                project={project} cuts={cuts} checks={checks} total={total}
+                project={project} cuts={cuts} checks={checks} total={total} evening={ui.evening}
                 specTab={ui.specTab} setSpecTab={t => setUi({ specTab: t })}
                 onExport={exportSheet}
               />

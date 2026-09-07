@@ -5,7 +5,7 @@ import Viewport from './Viewport.jsx';
 const SPEC_TABS = [['parts', 'Parts'], ['cuts', 'Cut list'], ['safety', 'Safety']];
 const VIEW_TABS = [['iso', 'Iso'], ['plan', 'Plan'], ['front', 'Front'], ['side', 'Side']];
 
-export default function SheetScreen({ project, cuts, checks, total, specTab, setSpecTab, onExport }) {
+export default function SheetScreen({ project, cuts, checks, total, specTab, setSpecTab, onExport, evening = false }) {
   const viewRef = useRef(null);
   const [marks, setMarks] = useState(true);
   const [view, setView] = useState('iso');
@@ -28,7 +28,7 @@ export default function SheetScreen({ project, cuts, checks, total, specTab, set
       <Viewport
         className="tall"
         parts={parts} yard={yard} viewRef={viewRef} view="iso" zoom={8.5}
-        mode={real ? 'real' : 'blueprint'}
+        mode={real ? 'real' : 'blueprint'} evening={evening}
         marks={marks}
         caption="Sheet A-01 · drag to orbit · marks follow"
         emptyText="Nothing to draw yet — build something first"
