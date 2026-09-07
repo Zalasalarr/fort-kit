@@ -10,6 +10,8 @@ export const MATS = {
   stone: { n: 'Stone', c: '#a9adb3', rate: 1.6, fixture: true },
   fabric: { n: 'Fabric', c: '#c4cbd6', rate: 1, fixture: true },
   light: { n: 'Lighting', c: '#e2cf86', rate: 1, fixture: true },
+  furniture: { n: 'Furniture', c: '#a5977f', rate: 1, fixture: true },
+  play: { n: 'Play gear', c: '#7fa3c4', rate: 1, fixture: true },
 };
 
 export const BUILD_MATS = Object.keys(MATS).filter(k => !MATS[k].fixture);
@@ -108,32 +110,19 @@ export const STOCK = [
   { id: 'corr', n: 'Corrugated panel', cat: 'sheet', mat: 'metal', T: .25, W: 26, L: 96, maxL: 144, maxW: 26, price: 24, unit: 'sheet' },
 
   /* ---- outdoor kitchen (L = width, W = depth, T = height; shape boxes sit on the envelope's underside) ---- */
-  { id: 'grill_drop', n: 'Drop-in gas grill 32"', cat: 'kitchen', mat: 'appliance', T: 22, W: 24, L: 32, price: 899, unit: 'each', fixed: true, color: '#c3c7cb',
-    shape: [{ w: 32, h: 13, d: 24 }, { w: 32, h: 9, d: 21, y: 13, z: -1.5, color: '#d2d5d8' }, { w: 30, h: 1.2, d: 2, y: 22, z: -12, color: '#3a3d40' }] },
-  { id: 'grill_cart', n: 'Gas grill cart 52"', cat: 'kitchen', mat: 'appliance', T: 46, W: 24, L: 52, price: 499, unit: 'each', fixed: true, color: '#b9bdc1',
-    shape: [{ w: 2, h: 26, d: 2, x: -24, z: -10, color: '#3a3d40' }, { w: 2, h: 26, d: 2, x: -24, z: 10, color: '#3a3d40' }, { w: 2, h: 26, d: 2, x: 24, z: -10, color: '#3a3d40' }, { w: 2, h: 26, d: 2, x: 24, z: 10, color: '#3a3d40' },
-      { w: 52, h: 12, d: 22, y: 26 }, { w: 32, h: 8, d: 20, y: 38, color: '#d2d5d8' }, { w: 10, h: 1.5, d: 22, x: -21, y: 24, color: '#d2d5d8' }, { w: 10, h: 1.5, d: 22, x: 21, y: 24, color: '#d2d5d8' }] },
-  { id: 'traeger', n: 'Pellet smoker (Traeger)', cat: 'kitchen', mat: 'appliance', T: 56, W: 22, L: 41, price: 799, unit: 'each', fixed: true, color: '#26282b',
-    shape: [{ w: 1.5, h: 28, d: 1.5, x: -13, z: -8 }, { w: 1.5, h: 28, d: 1.5, x: -13, z: 8 }, { w: 1.5, h: 28, d: 1.5, x: 8, z: -8 }, { w: 1.5, h: 28, d: 1.5, x: 8, z: 8 },
-      { w: 30, h: 18, d: 16, x: -3, y: 28 }, { w: 11, h: 17, d: 18, x: 15, y: 24, color: '#303236' }, { w: 3, h: 10, d: 3, x: -12, y: 46, z: -4, color: '#303236' }, { w: 30, h: 1, d: 16, x: -3, y: 33, color: '#45484c' }] },
-  { id: 'kamado', n: 'Kamado grill (egg)', cat: 'kitchen', mat: 'clay', T: 40, W: 24, L: 24, price: 999, unit: 'each', fixed: true, color: '#3b5f4a',
-    shape: [{ w: 2, h: 12, d: 2, x: -9, z: -9, color: '#3a3d40' }, { w: 2, h: 12, d: 2, x: 9, z: -9, color: '#3a3d40' }, { w: 2, h: 12, d: 2, x: -9, z: 9, color: '#3a3d40' }, { w: 2, h: 12, d: 2, x: 9, z: 9, color: '#3a3d40' },
-      { w: 20, h: 18, d: 20, y: 12 }, { w: 16, h: 9, d: 16, y: 30 }, { w: 3, h: 2, d: 3, y: 39, color: '#3a3d40' }] },
-  { id: 'pizza_oven', n: 'Wood-fired pizza oven', cat: 'kitchen', mat: 'clay', T: 36, W: 30, L: 36, price: 1200, unit: 'each', fixed: true, color: '#c4876c',
-    shape: [{ w: 36, h: 4, d: 30, color: '#9a4b3b' }, { w: 30, h: 22, d: 26, y: 4, z: -1 }, { w: 22, h: 12, d: 20, y: 26, z: -1 }, { w: 14, h: 10, d: 3, y: 6, z: 12.5, color: '#2b2420' }, { w: 6, h: 8, d: 6, y: 34, z: -6, color: '#7f7f82' }] },
-  { id: 'ooni', n: 'Portable pizza oven', cat: 'kitchen', mat: 'appliance', T: 20, W: 21, L: 25, price: 399, unit: 'each', fixed: true, color: '#2a2c2f',
-    shape: [{ w: 1.2, h: 4, d: 1.2, x: -9, z: -7 }, { w: 1.2, h: 4, d: 1.2, x: 9, z: -7 }, { w: 1.2, h: 4, d: 1.2, x: 0, z: 8 }, { w: 22, h: 9, d: 16, y: 4 }, { w: 14, h: 5, d: 2, y: 5, z: 9, color: '#111' }, { w: 3, h: 7, d: 3, x: -6, y: 13, z: -3 }] },
-  { id: 'fridge', n: 'Outdoor fridge 24"', cat: 'kitchen', mat: 'appliance', T: 34, W: 24, L: 24, price: 699, unit: 'each', fixed: true, color: '#c3c7cb',
-    shape: [{ w: 24, h: 34, d: 24 }, { w: 1, h: 24, d: 1.5, x: 9, y: 5, z: 12.5, color: '#8a8e92' }, { w: 24, h: 3, d: .5, y: 0, z: 12, color: '#3a3d40' }] },
-  { id: 'sink', n: 'Bar sink 15×15', cat: 'kitchen', mat: 'appliance', T: 9, W: 15, L: 15, price: 129, unit: 'each', fixed: true, color: '#c9ccd0',
-    shape: [{ w: 15, h: 8, d: 15 }, { w: 13, h: 1, d: 13, y: 7.2, color: '#8f9498' }, { w: 1.5, h: 9, d: 1.5, z: -6, color: '#c9ccd0' }] },
+  { id: 'grill_drop', n: 'Drop-in gas grill 32"', cat: 'kitchen', mat: 'appliance', T: 22, W: 24, L: 32, price: 899, unit: 'each', fixed: true, color: '#c3c7cb' },
+  { id: 'grill_cart', n: 'Gas grill cart 52"', cat: 'kitchen', mat: 'appliance', T: 46, W: 24, L: 52, price: 499, unit: 'each', fixed: true, color: '#b9bdc1' },
+  { id: 'traeger', n: 'Pellet smoker (Traeger)', cat: 'kitchen', mat: 'appliance', T: 56, W: 22, L: 41, price: 799, unit: 'each', fixed: true, color: '#26282b' },
+  { id: 'kamado', n: 'Kamado grill (egg)', cat: 'kitchen', mat: 'clay', T: 40, W: 24, L: 24, price: 999, unit: 'each', fixed: true, color: '#3b5f4a' },
+  { id: 'pizza_oven', n: 'Wood-fired pizza oven', cat: 'kitchen', mat: 'clay', T: 36, W: 30, L: 36, price: 1200, unit: 'each', fixed: true, color: '#c4876c' },
+  { id: 'ooni', n: 'Portable pizza oven', cat: 'kitchen', mat: 'appliance', T: 20, W: 21, L: 25, price: 399, unit: 'each', fixed: true, color: '#2a2c2f' },
+  { id: 'fridge', n: 'Outdoor fridge 24"', cat: 'kitchen', mat: 'appliance', T: 34, W: 24, L: 24, price: 699, unit: 'each', fixed: true, color: '#c3c7cb' },
+  { id: 'sink', n: 'Bar sink 15×15', cat: 'kitchen', mat: 'appliance', T: 18, W: 15, L: 15, price: 129, unit: 'each', fixed: true, color: '#c9ccd0' },
   { id: 'counter', n: 'Concrete countertop', cat: 'kitchen', mat: 'stone', T: 1.5, W: 25, L: 72, maxL: 144, maxW: 30, lengths: [96, 120, 144], price: 45, unit: 'ft', color: '#b8bab5' },
   { id: 'cabdoor', n: 'Cabinet door 24×30', cat: 'kitchen', mat: 'wood', T: .75, W: 30, L: 24, price: 45, unit: 'each', fixed: true, attach: true },
   { id: 'drawer', n: 'Drawer front 24×8', cat: 'kitchen', mat: 'wood', T: .75, W: 8, L: 24, price: 24, unit: 'each', fixed: true, attach: true },
-  { id: 'stool', n: 'Bar stool 30"', cat: 'kitchen', mat: 'wood', T: 30, W: 16, L: 16, price: 65, unit: 'each', fixed: true,
-    shape: [{ w: 1.2, h: 28, d: 1.2, x: -6.5, z: -6.5 }, { w: 1.2, h: 28, d: 1.2, x: 6.5, z: -6.5 }, { w: 1.2, h: 28, d: 1.2, x: -6.5, z: 6.5 }, { w: 1.2, h: 28, d: 1.2, x: 6.5, z: 6.5 }, { w: 16, h: 2, d: 16, y: 28 }, { w: 14, h: 1, d: 1, y: 10, z: -6.5 }, { w: 14, h: 1, d: 1, y: 10, z: 6.5 }] },
-  { id: 'firepit', n: 'Fire pit ring 36"', cat: 'kitchen', mat: 'appliance', T: 12, W: 36, L: 36, price: 89, unit: 'each', fixed: true, color: '#3a3d40',
-    shape: [{ w: 36, h: 12, d: 2, z: -17 }, { w: 36, h: 12, d: 2, z: 17 }, { w: 2, h: 12, d: 32, x: -17 }, { w: 2, h: 12, d: 32, x: 17 }, { w: 30, h: 1, d: 30, y: 2, color: '#5a4a3c' }] },
+  { id: 'stool', n: 'Bar stool 30"', cat: 'kitchen', mat: 'wood', T: 30, W: 16, L: 16, price: 65, unit: 'each', fixed: true },
+  { id: 'firepit', n: 'Fire pit ring 36"', cat: 'kitchen', mat: 'appliance', T: 12, W: 36, L: 36, price: 89, unit: 'each', fixed: true, color: '#3a3d40' },
 
   /* ---- clay ---- */
   { id: 'adobe', n: 'Adobe block 14×10×4', cat: 'clay', mat: 'clay', T: 4, W: 10, L: 14, price: 3.5, unit: 'each', fixed: true, color: '#b08a6c' },
@@ -142,65 +131,101 @@ export const STOCK = [
   { id: 'tile', n: 'Terracotta tile 12×12', cat: 'clay', mat: 'clay', T: .5, W: 12, L: 12, price: 2, unit: 'each', fixed: true, color: '#c4785a' },
 
   /* ---- beds & play ---- */
-  { id: 'mat_twin', n: 'Twin mattress 38×75', cat: 'bed', mat: 'fabric', T: 8, W: 38, L: 75, price: 150, unit: 'each', fixed: true, color: '#e3e6ec',
-    shape: [{ w: 75, h: 8, d: 38 }, { w: 75, h: 1, d: 38, y: 3.5, color: '#aeb6c4' }] },
-  { id: 'mat_twinxl', n: 'Twin XL mattress 38×80', cat: 'bed', mat: 'fabric', T: 8, W: 38, L: 80, price: 180, unit: 'each', fixed: true, color: '#e3e6ec',
-    shape: [{ w: 80, h: 8, d: 38 }, { w: 80, h: 1, d: 38, y: 3.5, color: '#aeb6c4' }] },
-  { id: 'mat_full', n: 'Full mattress 54×75', cat: 'bed', mat: 'fabric', T: 8, W: 54, L: 75, price: 220, unit: 'each', fixed: true, color: '#e3e6ec',
-    shape: [{ w: 75, h: 8, d: 54 }, { w: 75, h: 1, d: 54, y: 3.5, color: '#aeb6c4' }] },
+  { id: 'mat_twin', n: 'Twin mattress 38×75', cat: 'bed', mat: 'fabric', T: 8, W: 38, L: 75, price: 150, unit: 'each', fixed: true, color: '#e3e6ec' },
+  { id: 'mat_twinxl', n: 'Twin XL mattress 38×80', cat: 'bed', mat: 'fabric', T: 8, W: 38, L: 80, price: 180, unit: 'each', fixed: true, color: '#e3e6ec' },
+  { id: 'mat_full', n: 'Full mattress 54×75', cat: 'bed', mat: 'fabric', T: 8, W: 54, L: 75, price: 220, unit: 'each', fixed: true, color: '#e3e6ec' },
   { id: 'mat_toddler', n: 'Toddler mattress 28×52', cat: 'bed', mat: 'fabric', T: 5, W: 28, L: 52, price: 90, unit: 'each', fixed: true, color: '#e6e9ee' },
   { id: 'pillow', n: 'Pillow 20×26', cat: 'bed', mat: 'fabric', T: 5, W: 20, L: 26, price: 15, unit: 'each', fixed: true, color: '#f3f3f1' },
-  { id: 'playmat', n: 'Foam play mat 48×48', cat: 'bed', mat: 'fabric', T: 2, W: 48, L: 48, price: 60, unit: 'each', fixed: true, color: '#6fa1c9' },
-  { id: 'beanbag', n: 'Bean bag 36"', cat: 'bed', mat: 'fabric', T: 24, W: 36, L: 36, price: 80, unit: 'each', fixed: true, color: '#c95a5a',
-    shape: [{ w: 36, h: 14, d: 36 }, { w: 28, h: 10, d: 28, y: 14, color: '#b84f4f' }] },
-];
-
-// A sagging cord between the two top corners of the envelope, with a bulb every 12"
-function stringLightShape({ L, T }) {
-  const sag = T - 4, n = Math.max(6, Math.round(L / 10));
-  const yAt = x => T - sag * (1 - Math.pow((2 * x) / L, 2)) - .15;
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    const x0 = -L / 2 + (i * L) / n, x1 = -L / 2 + ((i + 1) * L) / n;
-    const y0 = yAt(x0), y1 = yAt(x1);
-    out.push({ w: Math.hypot(x1 - x0, y1 - y0) + .2, h: .3, d: .3, x: (x0 + x1) / 2, y: (y0 + y1) / 2, rz: Math.atan2(y1 - y0, x1 - x0), center: true, color: '#2a2c2f' });
-  }
-  for (let x = -L / 2 + 6; x <= L / 2 - 6; x += 12) {
-    const y = yAt(x);
-    out.push({ w: 1, h: 1.4, d: 1, x, y: y - 1.4, color: '#3a3d40' });
-    out.push({ w: 1.8, h: 2.6, d: 1.8, x, y: y - 4, color: '#ffe6a3', glow: true });
-  }
-  return out;
-}
-
-const LANTERN_CAGE = (w, h, y0 = 0, glass = '#ffe2a0') => [
-  { w: w + .5, h: .6, d: w + .5, y: y0, color: '#2b2d30' }, { w: w + .5, h: .6, d: w + .5, y: y0 + h - .6, color: '#2b2d30' },
-  { w: .4, h, d: .4, x: -w / 2, z: -w / 2, y: y0, color: '#2b2d30' }, { w: .4, h, d: .4, x: w / 2, z: -w / 2, y: y0, color: '#2b2d30' },
-  { w: .4, h, d: .4, x: -w / 2, z: w / 2, y: y0, color: '#2b2d30' }, { w: .4, h, d: .4, x: w / 2, z: w / 2, y: y0, color: '#2b2d30' },
-  { w: w - .6, h: h - 1.2, d: w - .6, y: y0 + .6, color: glass, glow: true },
+  { id: 'playmat', n: 'Foam play mat 48×48', cat: 'playroom', mat: 'fabric', T: 2, W: 48, L: 48, price: 60, unit: 'each', fixed: true, color: '#6fa1c9' },
+  { id: 'beanbag', n: 'Bean bag 36"', cat: 'bed', mat: 'fabric', T: 24, W: 36, L: 36, price: 80, unit: 'each', fixed: true, color: '#c95a5a' },
 ];
 
 STOCK.push(
   /* ---- lighting & shade ---- */
-  { id: 'string', n: 'String lights', cat: 'light', mat: 'light', T: 12, W: 2, L: 240, maxL: 600, lengths: [288, 576], price: 1.2, unit: 'ft', color: '#2a2c2f', shape: stringLightShape },
-  { id: 'lantern_hang', n: 'Hanging lantern', cat: 'light', mat: 'light', T: 10, W: 6, L: 6, price: 28, unit: 'each', fixed: true, color: '#2b2d30',
-    shape: [{ w: .5, h: 3, d: .5, y: 7, color: '#2b2d30' }, ...LANTERN_CAGE(5, 7)] },
-  { id: 'sconce', n: 'Wall lantern', cat: 'light', mat: 'light', T: 5, W: 12, L: 6, price: 45, unit: 'each', fixed: true, attach: true, color: '#2b2d30',
-    shape: [{ w: 5, h: 11, d: .5, z: -2.2, color: '#2b2d30' }, ...LANTERN_CAGE(4, 8, 1.5).map(b => ({ ...b, z: (b.z || 0) + .3 }))] },
-  { id: 'lantern_table', n: 'Table lantern', cat: 'light', mat: 'light', T: 12, W: 6, L: 6, price: 22, unit: 'each', fixed: true, color: '#2b2d30',
-    shape: [...LANTERN_CAGE(5, 10), { w: 4, h: .5, d: .5, y: 11.2, color: '#2b2d30' }] },
-  { id: 'pathlight', n: 'Solar path light', cat: 'light', mat: 'light', T: 17, W: 4, L: 4, price: 12, unit: 'each', fixed: true, color: '#3a3d40',
-    shape: [{ w: .6, h: 10, d: .6, color: '#3a3d40' }, { w: 1, h: 4, d: 1, y: 10, color: '#3a3d40' }, { w: 3, h: 2, d: 3, y: 13.5, color: '#ffe6a3', glow: true }, { w: 4, h: 1.2, d: 4, y: 15.5, color: '#3a3d40' }] },
-  { id: 'tiki', n: 'Tiki torch 5 ft', cat: 'light', mat: 'light', T: 62, W: 4, L: 4, price: 15, unit: 'each', fixed: true, color: '#8a6a45',
-    shape: [{ w: 1.5, h: 52, d: 1.5, color: '#8a6a45' }, { w: 4, h: 6, d: 4, y: 52, color: '#3a3d40' }, { w: 2.5, h: 4, d: 2.5, y: 58, color: '#ffb347', glow: true }] },
-  { id: 'umbrella_cant', n: 'Cantilever umbrella 10 ft', cat: 'light', mat: 'fabric', T: 100, W: 120, L: 140, price: 450, unit: 'each', fixed: true, color: '#c9c2ae',
-    shape: [{ w: 26, h: 3, d: 26, x: -57, color: '#8a8d90' }, { w: 3, h: 96, d: 3, x: -57, y: 3, color: '#3a3d40' }, { w: 68, h: 3, d: 3, x: -25, y: 96, color: '#3a3d40' },
-      { w: 3, h: 6, d: 3, x: 9, y: 90, color: '#3a3d40' }, { w: 118, h: 2, d: 118, x: 10, y: 88 }, { w: 60, h: 1.5, d: 60, x: 10, y: 90, color: '#bdb59f' }] },
-  { id: 'umbrella', n: 'Patio umbrella 9 ft', cat: 'light', mat: 'fabric', T: 96, W: 108, L: 108, price: 120, unit: 'each', fixed: true, color: '#c9c2ae',
-    shape: [{ w: 20, h: 3, d: 20, color: '#8a8d90' }, { w: 2, h: 93, d: 2, y: 3, color: '#3a3d40' }, { w: 106, h: 2, d: 106, y: 84 }, { w: 54, h: 1.5, d: 54, y: 86, color: '#bdb59f' }, { w: 3, h: 3, d: 3, y: 93, color: '#3a3d40' }] },
+  { id: 'string', n: 'String lights', cat: 'light', mat: 'light', T: 12, W: 2, L: 240, maxL: 600, lengths: [288, 576], price: 1.2, unit: 'ft', color: '#2a2c2f' },
+  { id: 'lantern_hang', n: 'Hanging lantern', cat: 'light', mat: 'light', T: 10, W: 6, L: 6, price: 28, unit: 'each', fixed: true, color: '#2b2d30' },
+  { id: 'sconce', n: 'Wall lantern', cat: 'light', mat: 'light', T: 5, W: 12, L: 6, price: 45, unit: 'each', fixed: true, attach: true, color: '#2b2d30' },
+  { id: 'lantern_table', n: 'Table lantern', cat: 'light', mat: 'light', T: 12, W: 6, L: 6, price: 22, unit: 'each', fixed: true, color: '#2b2d30' },
+  { id: 'pathlight', n: 'Solar path light', cat: 'light', mat: 'light', T: 17, W: 4, L: 4, price: 12, unit: 'each', fixed: true, color: '#3a3d40' },
+  { id: 'tiki', n: 'Tiki torch 5 ft', cat: 'light', mat: 'light', T: 62, W: 4, L: 4, price: 15, unit: 'each', fixed: true, color: '#8a6a45' },
+  { id: 'umbrella_cant', n: 'Cantilever umbrella 10 ft', cat: 'light', mat: 'fabric', T: 100, W: 120, L: 140, price: 450, unit: 'each', fixed: true, color: '#c9c2ae' },
+  { id: 'umbrella', n: 'Patio umbrella 9 ft', cat: 'light', mat: 'fabric', T: 96, W: 108, L: 108, price: 120, unit: 'each', fixed: true, color: '#c9c2ae' },
+  { id: 'heater', n: 'Patio heater 7 ft', cat: 'light', mat: 'appliance', T: 88, W: 32, L: 32, price: 180, unit: 'each', fixed: true, color: '#b9bdc1' },
+
+  /* ---- patio furniture (L = width, W = depth, T = height) ---- */
+  { id: 'dining_table', n: 'Patio dining table 60"', cat: 'furniture', mat: 'furniture', T: 29, W: 36, L: 60, price: 350, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'patio_chair', n: 'Patio dining chair', cat: 'furniture', mat: 'furniture', T: 34, W: 22, L: 22, price: 85, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'adirondack', n: 'Adirondack chair', cat: 'furniture', mat: 'furniture', T: 36, W: 34, L: 30, price: 120, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'lounge', n: 'Chaise lounge', cat: 'furniture', mat: 'furniture', T: 36, W: 76, L: 28, price: 180, unit: 'each', fixed: true, color: '#5b7c99' },
+  { id: 'bench', n: 'Garden bench 4 ft', cat: 'furniture', mat: 'furniture', T: 34, W: 22, L: 48, price: 140, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'picnic', n: 'Picnic table 6 ft', cat: 'furniture', mat: 'furniture', T: 30, W: 60, L: 72, price: 220, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'side_table', n: 'Side table 18"', cat: 'furniture', mat: 'furniture', T: 20, W: 18, L: 18, price: 45, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'porch_swing', n: 'Porch swing 4 ft', cat: 'furniture', mat: 'furniture', T: 60, W: 24, L: 48, price: 160, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'hammock', n: 'Hammock with stand', cat: 'furniture', mat: 'furniture', T: 40, W: 48, L: 110, price: 150, unit: 'each', fixed: true, color: '#d8cdb8' },
+  { id: 'rug', n: 'Outdoor rug 8×6 ft', cat: 'furniture', mat: 'fabric', T: .5, W: 72, L: 96, price: 90, unit: 'each', fixed: true, color: '#2f4a6b' },
+  { id: 'cooler', n: 'Cooler', cat: 'furniture', mat: 'appliance', T: 17, W: 16, L: 26, price: 60, unit: 'each', fixed: true, color: '#3d7bd9' },
+  { id: 'fire_table', n: 'Fire table 44"', cat: 'furniture', mat: 'stone', T: 24, W: 44, L: 44, price: 450, unit: 'each', fixed: true, color: '#b8bab5' },
+  { id: 'chiminea', n: 'Clay chiminea', cat: 'furniture', mat: 'clay', T: 48, W: 24, L: 24, price: 150, unit: 'each', fixed: true, color: '#c4785a' },
+
+  /* ---- garden & yard ---- */
+  { id: 'raised_bed', n: 'Raised garden bed 8×4 ft', cat: 'garden', mat: 'furniture', T: 18, W: 48, L: 96, price: 160, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'planter', n: 'Planter box 36"', cat: 'garden', mat: 'furniture', T: 14, W: 12, L: 36, price: 55, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'pot', n: 'Terracotta pot 20"', cat: 'garden', mat: 'clay', T: 24, W: 20, L: 20, price: 40, unit: 'each', fixed: true, color: '#c4785a' },
+  { id: 'trellis', n: 'Garden trellis 4×6 ft', cat: 'garden', mat: 'furniture', T: 72, W: 2, L: 48, price: 45, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'rain_barrel', n: 'Rain barrel 50 gal', cat: 'garden', mat: 'appliance', T: 36, W: 24, L: 24, price: 110, unit: 'each', fixed: true, color: '#2f4a5e' },
+  { id: 'birdbath', n: 'Bird bath', cat: 'garden', mat: 'stone', T: 30, W: 20, L: 20, price: 75, unit: 'each', fixed: true, color: '#b8bab5' },
+  { id: 'fence', n: 'Fence panel 8×6 ft', cat: 'garden', mat: 'furniture', T: 72, W: 4, L: 96, price: 80, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'gate', n: 'Garden gate 42"', cat: 'garden', mat: 'furniture', T: 48, W: 4, L: 42, price: 120, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'shed', n: 'Garden shed 8×6 ft', cat: 'garden', mat: 'furniture', T: 90, W: 72, L: 96, price: 1500, unit: 'each', fixed: true, color: '#e9dcc4' },
+  { id: 'compost', n: 'Compost bin', cat: 'garden', mat: 'appliance', T: 32, W: 30, L: 30, price: 70, unit: 'each', fixed: true, color: '#1b1c1e' },
+  { id: 'hose', n: 'Hose reel cart', cat: 'garden', mat: 'appliance', T: 36, W: 18, L: 24, price: 50, unit: 'each', fixed: true, color: '#3a8f5c' },
+  { id: 'doghouse', n: 'Dog house', cat: 'garden', mat: 'furniture', T: 34, W: 30, L: 36, price: 160, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'shower', n: 'Outdoor shower', cat: 'garden', mat: 'furniture', T: 90, W: 36, L: 36, price: 400, unit: 'each', fixed: true, color: '#b08a5c' },
+
+  /* ---- play & fun ---- */
+  { id: 'swing', n: 'Swing set 8 ft', cat: 'play', mat: 'play', T: 84, W: 72, L: 96, price: 350, unit: 'each', fixed: true, color: '#3a8f5c' },
+  { id: 'slide', n: 'Slide 8 ft', cat: 'play', mat: 'play', T: 48, W: 22, L: 96, price: 150, unit: 'each', fixed: true, color: '#3d7bd9' },
+  { id: 'sandbox', n: 'Sandbox 5×5 ft', cat: 'play', mat: 'furniture', T: 10, W: 60, L: 60, price: 120, unit: 'each', fixed: true, color: '#d9c69a' },
+  { id: 'trampoline', n: 'Trampoline 12 ft', cat: 'play', mat: 'play', T: 108, W: 144, L: 144, price: 400, unit: 'each', fixed: true, color: '#2b2d30' },
+  { id: 'pool', n: 'Kiddie pool 5 ft', cat: 'play', mat: 'play', T: 15, W: 60, L: 60, price: 30, unit: 'each', fixed: true, color: '#3d7bd9' },
+  { id: 'hot_tub', n: 'Hot tub 7 ft', cat: 'play', mat: 'appliance', T: 36, W: 84, L: 84, price: 4000, unit: 'each', fixed: true, color: '#6b6055' },
+  { id: 'hoop', n: 'Basketball hoop', cat: 'play', mat: 'play', T: 132, W: 36, L: 48, price: 300, unit: 'each', fixed: true, color: '#f3f3f0' },
+  { id: 'cornhole', n: 'Cornhole board', cat: 'play', mat: 'furniture', T: 12, W: 48, L: 24, price: 80, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'water_table', n: 'Water table', cat: 'play', mat: 'play', T: 24, W: 24, L: 36, price: 60, unit: 'each', fixed: true, color: '#3d7bd9' },
+  { id: 'playhouse', n: 'Playhouse 5×4 ft', cat: 'play', mat: 'furniture', T: 66, W: 48, L: 60, price: 500, unit: 'each', fixed: true, color: '#e9dcc4' },
+  { id: 'spring_rider', n: 'Spring rider', cat: 'play', mat: 'play', T: 30, W: 12, L: 30, price: 130, unit: 'each', fixed: true, color: '#f2c744' },
+  { id: 'climbing_dome', n: 'Climbing dome 6 ft', cat: 'play', mat: 'play', T: 40, W: 72, L: 72, price: 250, unit: 'each', fixed: true, color: '#e04b3c' },
+  { id: 'balance_beam', n: 'Balance beam 8 ft', cat: 'play', mat: 'furniture', T: 12, W: 6, L: 96, price: 90, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'tetherball', n: 'Tetherball', cat: 'play', mat: 'play', T: 96, W: 24, L: 24, price: 70, unit: 'each', fixed: true, color: '#f2c744' },
+  { id: 'seesaw', n: 'Seesaw 8 ft', cat: 'play', mat: 'play', T: 30, W: 14, L: 96, price: 120, unit: 'each', fixed: true, color: '#3a8f5c' },
+  { id: 'kids_picnic', n: 'Kids picnic table', cat: 'play', mat: 'furniture', T: 20, W: 36, L: 36, price: 80, unit: 'each', fixed: true, color: '#b08a5c' },
+
+  /* ---- indoor playroom ---- */
+  { id: 'play_kitchen', n: 'Play kitchen', cat: 'playroom', mat: 'play', T: 38, W: 14, L: 36, price: 130, unit: 'each', fixed: true, color: '#f3f3f0' },
+  { id: 'cube_storage', n: 'Cube storage 3×3', cat: 'playroom', mat: 'furniture', T: 42, W: 15, L: 42, price: 90, unit: 'each', fixed: true, color: '#f3f3f0' },
+  { id: 'bookshelf', n: 'Kids bookshelf', cat: 'playroom', mat: 'furniture', T: 36, W: 10, L: 30, price: 70, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'teepee', n: 'Play teepee', cat: 'playroom', mat: 'fabric', T: 62, W: 48, L: 48, price: 60, unit: 'each', fixed: true, color: '#c9c2ae' },
+  { id: 'ballpit', n: 'Ball pit 4×4 ft', cat: 'playroom', mat: 'play', T: 20, W: 48, L: 48, price: 80, unit: 'each', fixed: true, color: '#3d7bd9' },
+  { id: 'pikler', n: 'Climbing triangle', cat: 'playroom', mat: 'furniture', T: 32, W: 34, L: 36, price: 150, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'rocking_horse', n: 'Rocking horse', cat: 'playroom', mat: 'furniture', T: 26, W: 12, L: 32, price: 70, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'easel', n: 'Art easel', cat: 'playroom', mat: 'furniture', T: 44, W: 24, L: 24, price: 50, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'kids_table', n: 'Kids table 30"', cat: 'playroom', mat: 'furniture', T: 22, W: 30, L: 30, price: 60, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'kids_chair', n: 'Kids chair', cat: 'playroom', mat: 'furniture', T: 22, W: 13, L: 13, price: 25, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'toy_chest', n: 'Toy chest 36"', cat: 'playroom', mat: 'furniture', T: 20, W: 18, L: 36, price: 90, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'play_rug', n: 'Round play rug 6 ft', cat: 'playroom', mat: 'fabric', T: .5, W: 72, L: 72, price: 60, unit: 'each', fixed: true, color: '#3d7bd9' },
+  { id: 'floor_cushion', n: 'Floor cushion 24"', cat: 'playroom', mat: 'fabric', T: 5, W: 24, L: 24, price: 30, unit: 'each', fixed: true, color: '#5b7c99' },
+  { id: 'sensory_swing', n: 'Sensory pod swing', cat: 'playroom', mat: 'fabric', T: 72, W: 40, L: 40, price: 45, unit: 'each', fixed: true, color: '#3d7bd9' },
+  { id: 'tunnel', n: 'Play tunnel 6 ft', cat: 'playroom', mat: 'fabric', T: 20, W: 20, L: 72, price: 25, unit: 'each', fixed: true, color: '#3d7bd9' },
+  { id: 'chalkboard', n: 'Chalkboard 4×3 ft', cat: 'playroom', mat: 'furniture', T: 1.5, W: 36, L: 48, price: 40, unit: 'each', fixed: true, attach: true, color: '#2e4a3a' },
+  { id: 'foam_blocks', n: 'Foam block set', cat: 'playroom', mat: 'play', T: 12, W: 24, L: 36, price: 120, unit: 'each', fixed: true, color: '#d94f3d' },
+  { id: 'train_table', n: 'Train table', cat: 'playroom', mat: 'furniture', T: 18, W: 32, L: 48, price: 150, unit: 'each', fixed: true, color: '#b08a5c' },
+  { id: 'mini_tramp', n: 'Mini trampoline', cat: 'playroom', mat: 'play', T: 36, W: 40, L: 40, price: 70, unit: 'each', fixed: true, color: '#3d7bd9' },
+  { id: 'puppet', n: 'Puppet theater', cat: 'playroom', mat: 'furniture', T: 54, W: 16, L: 30, price: 80, unit: 'each', fixed: true, color: '#d94f3d' },
+  { id: 'dollhouse', n: 'Dollhouse', cat: 'playroom', mat: 'furniture', T: 36, W: 14, L: 30, price: 120, unit: 'each', fixed: true, color: '#f3e3e6' },
+  { id: 'indoor_slide', n: 'Indoor slide', cat: 'playroom', mat: 'play', T: 30, W: 20, L: 60, price: 90, unit: 'each', fixed: true, color: '#48a05a' },
 );
 
-export const QUICK_FIXTURES = ['grill_drop', 'traeger', 'pizza_oven', 'fridge', 'counter', 'cabdoor', 'mat_twin', 'beanbag', 'string', 'lantern_hang', 'umbrella_cant'];
+export const QUICK_FIXTURES = ['grill_drop', 'traeger', 'pizza_oven', 'fridge', 'counter', 'cabdoor', 'mat_twin', 'beanbag', 'string', 'lantern_hang', 'umbrella_cant', 'dining_table', 'swing', 'play_kitchen'];
 
 export const QUICK_STOCK = ['2x4', '2x6', '4x4', 'ply12', 'brick', 'block', 'tube', 'rope', 'hold'];
 

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { MATS, stockById } from './data.js';
 import { pieceDims, isPiece } from './logic.js';
 import { realMaterial, groundMaterial, holdColor, MASONRY_COLORS } from './textures.js';
+import { buildFixture } from './fixtures.js';
 
 export const VIEWS = {
   iso: { az: .78, el: .5 },
@@ -521,7 +522,9 @@ export class BuildView {
       else if (s.id === 'hold') opts = { color: holdColor(i) };
       else if (s.color) opts = { color: s.color };
     }
-    if (s.shape) {
+    if (buildFixture(this, g, s, p.mat, { L, T, W })) {
+      // Detailed fixture model (grill, oven, bed, lantern, chair…)
+    } else if (s.shape) {
       // Fixture made of a few boxes; y in the shape is height above the envelope's underside
       const boxes = typeof s.shape === 'function' ? s.shape({ L, T, W }) : s.shape;
       boxes.forEach(b => {

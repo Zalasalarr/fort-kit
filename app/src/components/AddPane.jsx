@@ -11,20 +11,23 @@ const CATS = [
   ['masonry', 'Brick, block & clay'],
   ['metal', 'Metal, rope & holds'],
   ['kitchen', 'Outdoor kitchen'],
-  ['bed', 'Beds & play'],
+  ['furniture', 'Patio furniture'],
+  ['garden', 'Garden & yard'],
   ['light', 'Lighting & shade'],
+  ['play', 'Play & fun'],
+  ['playroom', 'Indoor playroom'],
+  ['bed', 'Beds & cushions'],
   ['quick', 'Quick parts'],
   ['custom', 'Yours'],
 ];
 
-const STOCK_CAT = { lumber: 'lumber', sheet: 'lumber', masonry: 'masonry', clay: 'masonry', metal: 'metal', rope: 'metal', holds: 'metal', kitchen: 'kitchen', bed: 'bed', light: 'light' };
+const STOCK_CAT = { lumber: 'lumber', sheet: 'lumber', masonry: 'masonry', clay: 'masonry', metal: 'metal', rope: 'metal', holds: 'metal', kitchen: 'kitchen', bed: 'bed', light: 'light', furniture: 'furniture', garden: 'garden', play: 'play', playroom: 'playroom' };
 
 function price(s) {
   return `$${s.price}${s.unit === 'ft' ? ' per ft' : s.unit === 'sheet' ? ' per sheet' : ' each'}`;
 }
 
 function sizeOf(s) {
-  if (s.unit !== 'ft' && (s.shape || ['kitchen', 'bed', 'light'].includes(s.cat))) return `${s.L} × ${s.W} × ${s.T} in`;
   if (s.unit === 'each') return `${s.L} × ${s.W} × ${s.T} in`;
   if (s.unit === 'sheet') return `${s.W} × ${s.L} in sheet`;
   return `${s.T} × ${s.W} in · ${fmtIn(s.L)}${s.maxL > s.L ? ` (up to ${fmtIn(s.maxL)})` : ''}`;

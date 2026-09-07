@@ -147,6 +147,28 @@ const patio = () => canvasTexture('patio', 256, 2, (ctx, S, r) => {
   ctx.fillRect(0, 0, 3, S);
 });
 
+// Diamond-stitched mattress ticking, one 1 ft tile with two 6" diamonds across
+export const quilt = () => canvasTexture('quilt', 256, 1, (ctx, S, r) => {
+  ctx.fillStyle = '#eef0f3';
+  ctx.fillRect(0, 0, S, S);
+  for (let i = 0; i < 900; i++) {
+    ctx.fillStyle = `rgba(90,100,120,${r() * .06})`;
+    ctx.fillRect(r() * S, r() * S, 3, 3);
+  }
+  ctx.strokeStyle = 'rgba(110,118,132,.5)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  for (let k = -2; k <= 2; k++) { ctx.moveTo(0, k * S / 2); ctx.lineTo(S, S + k * S / 2); }
+  for (let k = 0; k <= 4; k++) { ctx.moveTo(0, k * S / 2); ctx.lineTo(S, k * S / 2 - S); }
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,.7)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let k = -2; k <= 2; k++) { ctx.moveTo(0, k * S / 2 - 3); ctx.lineTo(S, S + k * S / 2 - 3); }
+  for (let k = 0; k <= 4; k++) { ctx.moveTo(0, k * S / 2 - 3); ctx.lineTo(S, k * S / 2 - S - 3); }
+  ctx.stroke();
+});
+
 const GROUND = { Grass: grass, Mulch: mulch, Patio: patio };
 
 const MAT_TEX = { wood, brick, metal, rope };
