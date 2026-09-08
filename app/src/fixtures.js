@@ -1,33 +1,11 @@
 import * as THREE from 'three';
-import { Fx, M } from './fx.js';
+import { Fx, M, knobs, gauge, lidHandle, wheel } from './fx.js';
 import { MORE } from './fixtures-more.js';
+import { KITCHEN } from './fixtures-kitchen.js';
 
 /* Detailed 3D models for bought fixtures: outdoor kitchen, beds, lighting (more in fixtures-more.js). */
 
 /* ---------- shared bits ---------- */
-
-function knobs(f, xs, y, z, r = 1.1) {
-  xs.forEach(x => {
-    f.cyl(r, 1.2, x, y, z, M.black, { axis: 'z', center: true });
-    f.box(.3, r * 1.2, .3, x, y - r * .6, z + .65, M.steel2);
-  });
-}
-
-function gauge(f, x, y, z) {
-  f.cyl(1.6, .7, x, y, z, M.black, { axis: 'z', center: true });
-  f.cyl(1.2, .2, x, y, z + .45, M.dial, { axis: 'z', center: true });
-}
-
-function lidHandle(f, len, x, y, z) {
-  f.cyl(.55, len, x, y, z, M.black, { axis: 'x', center: true });
-  f.cyl(.45, 2.4, x - len / 2 + 2, y, z - 1.2, M.black, { axis: 'z', center: true });
-  f.cyl(.45, 2.4, x + len / 2 - 2, y, z - 1.2, M.black, { axis: 'z', center: true });
-}
-
-function wheel(f, x, y, z, r = 3.2) {
-  f.cyl(r, 1.4, x, y, z, M.plastic, { axis: 'x', center: true });
-  f.cyl(r * .45, 1.6, x, y, z, M.steel2, { axis: 'x', center: true });
-}
 
 // Square candle lantern: base, four posts, glass, candle with a flame, optional pyramid roof
 function lantern(f, w, h, x, yb, z, { roof = true } = {}) {
@@ -285,7 +263,7 @@ function mattress(f, { L, W, T }) {
   f.rbox(L + .3, T * .42, W + .3, .8, 0, T * .29, 0, M.border);
 }
 
-Object.assign(FIXTURES, MORE);
+Object.assign(FIXTURES, MORE, KITCHEN);
 
 // Builds the detailed model for a stock id into `group` (returns false when the stock has none)
 export function buildFixture(view, group, stock, mat, dims) {

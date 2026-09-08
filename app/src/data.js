@@ -124,6 +124,36 @@ export const STOCK = [
   { id: 'stool', n: 'Bar stool 30"', cat: 'kitchen', mat: 'wood', T: 30, W: 16, L: 16, price: 65, unit: 'each', fixed: true },
   { id: 'firepit', n: 'Fire pit ring 36"', cat: 'kitchen', mat: 'appliance', T: 12, W: 36, L: 36, price: 89, unit: 'each', fixed: true, color: '#3a3d40' },
 
+  /* ---- more outdoor kitchen: cookers ---- */
+  { id: 'griddle', n: 'Flat-top griddle 36"', cat: 'kitchen', mat: 'appliance', T: 46, W: 24, L: 52, price: 549, unit: 'each', fixed: true, color: '#b9bdc1' },
+  { id: 'kettle', n: 'Charcoal kettle grill', cat: 'kitchen', mat: 'appliance', T: 40, W: 24, L: 24, price: 179, unit: 'each', fixed: true, color: '#1f2a33' },
+  { id: 'santa_maria', n: 'Santa Maria grill 42"', cat: 'kitchen', mat: 'appliance', T: 60, W: 28, L: 44, price: 1400, unit: 'each', fixed: true, color: '#2e3134' },
+  { id: 'smoker_cab', n: 'Vertical smoker cabinet', cat: 'kitchen', mat: 'appliance', T: 52, W: 22, L: 24, price: 449, unit: 'each', fixed: true, color: '#2e3134' },
+  { id: 'side_burner', n: 'Side burner (double)', cat: 'kitchen', mat: 'appliance', T: 10, W: 20, L: 24, price: 279, unit: 'each', fixed: true, color: '#c3c7cb' },
+  { id: 'wok_burner', n: 'Wok burner', cat: 'kitchen', mat: 'appliance', T: 12, W: 20, L: 20, price: 329, unit: 'each', fixed: true, color: '#c3c7cb' },
+  { id: 'deep_fryer', n: 'Outdoor deep fryer', cat: 'kitchen', mat: 'appliance', T: 40, W: 20, L: 26, price: 260, unit: 'each', fixed: true, color: '#c3c7cb' },
+  { id: 'vent_hood', n: 'Vent hood 36"', cat: 'kitchen', mat: 'appliance', T: 40, W: 24, L: 36, price: 700, unit: 'each', fixed: true, color: '#c3c7cb' },
+
+  /* ---- more outdoor kitchen: cold & drinks ---- */
+  { id: 'kegerator', n: 'Kegerator with taps', cat: 'kitchen', mat: 'appliance', T: 42, W: 24, L: 24, price: 899, unit: 'each', fixed: true, color: '#c3c7cb' },
+  { id: 'ice_bin', n: 'Drop-in ice bin', cat: 'kitchen', mat: 'appliance', T: 16, W: 18, L: 24, price: 190, unit: 'each', fixed: true, color: '#c9ccd0' },
+  { id: 'ice_maker', n: 'Ice maker 15"', cat: 'kitchen', mat: 'appliance', T: 34, W: 24, L: 15, price: 750, unit: 'each', fixed: true, color: '#c3c7cb' },
+  { id: 'wine_fridge', n: 'Wine fridge 24"', cat: 'kitchen', mat: 'appliance', T: 34, W: 24, L: 24, price: 820, unit: 'each', fixed: true, color: '#2e3134' },
+  { id: 'bev_tub', n: 'Beverage tub on stand', cat: 'kitchen', mat: 'appliance', T: 30, W: 20, L: 30, price: 70, unit: 'each', fixed: true, color: '#b6bcc2' },
+  { id: 'bar_cart', n: 'Rolling bar cart', cat: 'kitchen', mat: 'furniture', T: 34, W: 18, L: 34, price: 180, unit: 'each', fixed: true, color: '#b48d5a' },
+
+  /* ---- more outdoor kitchen: cabinets & prep ---- */
+  { id: 'dish_drawer', n: 'Dishwasher drawers 24"', cat: 'kitchen', mat: 'appliance', T: 34, W: 24, L: 24, price: 1100, unit: 'each', fixed: true, color: '#c3c7cb' },
+  { id: 'warming_drawer', n: 'Warming drawer 30"', cat: 'kitchen', mat: 'appliance', T: 10, W: 22, L: 30, price: 640, unit: 'each', fixed: true, color: '#c3c7cb' },
+  { id: 'trash_drawer', n: 'Trash pull-out', cat: 'kitchen', mat: 'appliance', T: 30, W: 22, L: 18, price: 210, unit: 'each', fixed: true, color: '#c3c7cb' },
+  { id: 'butcher_block', n: 'Butcher block cart', cat: 'kitchen', mat: 'furniture', T: 36, W: 24, L: 40, price: 320, unit: 'each', fixed: true, color: '#c09a68' },
+  { id: 'bar_top', n: 'Raised bar top 6 ft', cat: 'kitchen', mat: 'stone', T: 12, W: 16, L: 72, price: 380, unit: 'each', fixed: true, color: '#b8bab5' },
+  { id: 'firewood', n: 'Firewood rack 4 ft', cat: 'kitchen', mat: 'appliance', T: 40, W: 14, L: 48, price: 95, unit: 'each', fixed: true, color: '#2e3134' },
+  { id: 'pot_rack', n: 'Hanging pot rack', cat: 'kitchen', mat: 'appliance', T: 36, W: 18, L: 36, price: 150, unit: 'each', fixed: true, color: '#36393c' },
+  { id: 'utensil_rail', n: 'Utensil rail', cat: 'kitchen', mat: 'appliance', T: 2, W: 14, L: 24, price: 45, unit: 'each', fixed: true, attach: true, color: '#c9ccd0' },
+  { id: 'spice_shelf', n: 'Spice shelf', cat: 'kitchen', mat: 'wood', T: 6, W: 6, L: 20, price: 35, unit: 'each', fixed: true, attach: true },
+  { id: 'outdoor_tv', n: 'Outdoor TV 48"', cat: 'kitchen', mat: 'appliance', T: 3, W: 26, L: 44, price: 1200, unit: 'each', fixed: true, attach: true, color: '#2e3134' },
+
   /* ---- clay ---- */
   { id: 'adobe', n: 'Adobe block 14×10×4', cat: 'clay', mat: 'clay', T: 4, W: 10, L: 14, price: 3.5, unit: 'each', fixed: true, color: '#b08a6c' },
   { id: 'flue', n: 'Clay flue liner 8×8×24', cat: 'clay', mat: 'clay', T: 24, W: 8, L: 8, price: 18, unit: 'each', fixed: true, color: '#b97a5e',
@@ -225,7 +255,7 @@ STOCK.push(
   { id: 'indoor_slide', n: 'Indoor slide', cat: 'playroom', mat: 'play', T: 30, W: 20, L: 60, price: 90, unit: 'each', fixed: true, color: '#48a05a' },
 );
 
-export const QUICK_FIXTURES = ['grill_drop', 'traeger', 'pizza_oven', 'fridge', 'counter', 'cabdoor', 'mat_twin', 'beanbag', 'string', 'lantern_hang', 'umbrella_cant', 'dining_table', 'swing', 'play_kitchen'];
+export const QUICK_FIXTURES = ['grill_drop', 'traeger', 'pizza_oven', 'fridge', 'counter', 'cabdoor', 'mat_twin', 'beanbag', 'string', 'lantern_hang', 'umbrella_cant', 'dining_table', 'swing', 'play_kitchen', 'griddle', 'kegerator'];
 
 export const QUICK_STOCK = ['2x4', '2x6', '4x4', 'ply12', 'brick', 'block', 'tube', 'rope', 'hold'];
 
