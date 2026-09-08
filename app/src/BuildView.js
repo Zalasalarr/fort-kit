@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { MATS, stockById } from './data.js';
 import { pieceDims, isPiece } from './logic.js';
-import { realMaterial, groundMaterial, holdColor, MASONRY_COLORS } from './textures.js';
+import { realMaterial, groundMaterial, holdColor, flatMaterial, MASONRY_COLORS } from './textures.js';
 import { buildFixture } from './fixtures.js';
 
 export const VIEWS = {
@@ -16,6 +16,32 @@ const BG = { blueprint: '#f2f2f3', real: '#e3ecf5' };
 const TARGET = new THREE.Vector3(0, 2.6, 0);
 const EDGE_TOL = 1.5 / 12;
 const rad = d => (d * Math.PI) / 180;
+
+// Shared across every outline in the drawing look, so nothing has to be disposed per mesh
+const EDGE_MAT = new THREE.LineBasicMaterial({ color: 0x1d1f20, transparent: true, opacity: .42 });
+
+// Materials are cached and shared, so only geometry is released here
+function disposeTree(g) {
+  g.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+}
+
+// Where a part sits, kept apart from what it is built out of
+function place(g, p) {
+  if (isPiece(p)) {
+    g.position.set(p.cx / 12, p.cy / 12, p.cz / 12);
+    g.rotation.set(rad(p.roll || 0), rad(p.yaw || 0), rad(p.pitch || 0), 'YZX');
+  } else {
+    g.position.set(p.x, 0, p.z);
+    g.rotation.set(0, (p.rot || 0) * Math.PI / 2, 0);
+  }
+}
+
+// True when two parts differ only in where they sit, so the same meshes can be moved instead of rebuilt
+function sameShape(a, b) {
+  if (!a || !b || isPiece(a) !== isPiece(b)) return false;
+  if (isPiece(a)) return a.stock === b.stock && a.mat === b.mat && a.L === b.L && a.W === b.W;
+  return a.k === b.k && a.mat === b.mat && a.lvl === b.lvl && a.h === b.h;
+}
 
 export class BuildView {
   constructor(canvas, { az = .78, el = .5, zoom = 9, pick = false, mode = 'blueprint', camera = 'iso', snap = 12 } = {}) {
@@ -72,8 +98,14 @@ export class BuildView {
     this.scene.add(this.group);
 
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
-    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    // 2x on a high-DPI screen means four times the pixels to shade, which most laptops cannot
+    // keep up with here; 1.5 keeps the edges clean for far less work
+    this.renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio || 1));
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // Shadows depend on the build and the sun, never on the camera, so they are refreshed on
+    // demand instead of re-rendering the whole scene again on every orbit and zoom frame
+    this.renderer.shadowMap.autoUpdate = false;
+    this._shadowDirty = true;
     this._raycaster = new THREE.Raycaster();
     this._plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
@@ -94,10 +126,12 @@ export class BuildView {
     this.mode = mode;
     this._applyMode();
     this._buildGround();
+    this._flush();
     this.setParts(this.parts, this.sel);
   }
 
   _applyMode() {
+    this._shadowDirty = true;
     const real = this.real, eve = real && this.evening;
     const bg = eve ? '#2a3350' : BG[this.mode];
     this.scene.background = new THREE.Color(bg);
@@ -169,6 +203,10 @@ export class BuildView {
   }
 
   draw() {
+    if (this._shadowDirty && this.renderer.shadowMap.enabled) {
+      this.renderer.shadowMap.needsUpdate = true;
+      this._shadowDirty = false;
+    }
     this.renderer.render(this.scene, this.cam);
     if (this.afterDraw) this.afterDraw(this);
   }
@@ -192,6 +230,7 @@ export class BuildView {
   }
 
   _buildGround() {
+    this._shadowDirty = true;
     const w = this._yardW, d = this._yardD;
     this.ground.clear();
     const size = Math.max(26, Math.ceil(Math.max(w, d) / 2) * 2 + 8);
@@ -498,14 +537,13 @@ export class BuildView {
       m.castShadow = true;
       m.receiveShadow = true;
     } else {
-      m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: MATS[mat].c }));
+      m = new THREE.Mesh(g, flatMaterial(MATS[mat].c));
     }
     m.position.set(x, center ? y : y + h / 2, z);
     if (rz) m.rotation.z = rz;
     grp.add(m);
     if (!this.real) {
-      const e = new THREE.LineSegments(new THREE.EdgesGeometry(g),
-        new THREE.LineBasicMaterial({ color: 0x1d1f20, transparent: true, opacity: .42 }));
+      const e = new THREE.LineSegments(new THREE.EdgesGeometry(g), EDGE_MAT);
       e.position.copy(m.position);
       e.rotation.copy(m.rotation);
       grp.add(e);
@@ -536,8 +574,7 @@ export class BuildView {
     } else {
       this.box(g, p.mat, L / 12, T / 12, W / 12, 0, -T / 24, 0, opts);
     }
-    g.position.set(p.cx / 12, p.cy / 12, p.cz / 12);
-    g.rotation.set(rad(p.roll || 0), rad(p.yaw || 0), rad(p.pitch || 0), 'YZX');
+    place(g, p);
     return g;
   }
 
@@ -588,29 +625,72 @@ export class BuildView {
     } else if (p.k === 'mass') {
       B(2, p.h, 2, 0, y, 0);
     }
-    g.position.set(p.x, 0, p.z);
-    g.rotation.y = (p.rot || 0) * Math.PI / 2;
+    place(g, p);
     return g;
+  }
+
+  // Only climbing holds are coloured from their index, so only they must be rebuilt when it shifts
+  _indexed(p) {
+    return isPiece(p) && p.stock === 'hold';
+  }
+
+  // Throws away built parts; needed when the look changes, since geometry differs between modes
+  _flush() {
+    if (this._built) this._built.forEach(({ g }) => disposeTree(g));
+    this._built = null;
+    this._order = null;
   }
 
   setParts(parts, selIdx = -1) {
     this.parts = parts;
     this.sel = selIdx;
+    this._shadowDirty = true;
     this.bounds = [];
     this.aabbs = [];
     this.group.clear();
+    if (this._selBox) { this._selBox.geometry.dispose(); this._selBox = null; }
+
+    /*
+     * Dragging re-runs this on every pointer move, so rebuilding the whole yard would cost tens of
+     * milliseconds a frame. Parts the reducer left untouched keep their object identity, so their
+     * meshes are reused as-is and only what actually changed is rebuilt.
+     */
+    const prev = this._built || new Map();
+    const order = this._order || [];
+    const built = new Map();
     parts.forEach((p, i) => {
-      const g = this.buildPart(p, i);
-      g.userData.idx = i;
-      this.group.add(g);
-      g.updateMatrixWorld(true);
-      const bb = new THREE.Box3().setFromObject(g);
-      if (!bb.isEmpty()) {
-        const c = bb.getCenter(new THREE.Vector3());
-        this.bounds[i] = { x: c.x, z: c.z, top: bb.max.y };
-        this.aabbs[i] = bb;
+      const hit = prev.get(p);
+      let g, bb, bound;
+      if (hit && (hit.idx === i || !hit.indexed)) {
+        // Same part object, so its meshes and its world box both still hold
+        ({ g, bb, bound } = hit);
+        prev.delete(p);
+      } else {
+        // A drag only moves a part. Rebuilding its meshes would re-upload them to the GPU every
+        // frame, which is what made dragging stutter, so move the ones it already has instead.
+        const was = order[i];
+        const moved = was && was !== p && sameShape(was, p) ? prev.get(was) : null;
+        if (moved && (moved.idx === i || !moved.indexed)) {
+          prev.delete(was);
+          g = moved.g;
+          place(g, p);
+        } else {
+          g = this.buildPart(p, i);
+        }
+        g.updateMatrixWorld(true);
+        bb = new THREE.Box3().setFromObject(g);
+        if (bb.isEmpty()) bb = null;
+        const c = bb && bb.getCenter(new THREE.Vector3());
+        bound = c ? { x: c.x, z: c.z, top: bb.max.y } : null;
       }
+      g.userData.idx = i;
+      built.set(p, { g, bb, bound, idx: i, indexed: this._indexed(p) });
+      this.group.add(g);
+      if (bb) { this.bounds[i] = bound; this.aabbs[i] = bb; }
     });
+    prev.forEach(({ g }) => disposeTree(g));
+    this._built = built;
+    this._order = parts;
     const selPart = parts[selIdx];
     if (selPart) {
       let box = this.aabbs[selIdx] ? this.aabbs[selIdx].clone() : null;
@@ -618,7 +698,10 @@ export class BuildView {
         box = new THREE.Box3();
         parts.forEach((q, i) => { if (q.grp === selPart.grp && this.aabbs[i]) box.union(this.aabbs[i]); });
       }
-      if (box) this.group.add(new THREE.Box3Helper(box.expandByScalar(.1), new THREE.Color('#5980a6')));
+      if (box) {
+        this._selBox = new THREE.Box3Helper(box.expandByScalar(.1), new THREE.Color('#5980a6'));
+        this.group.add(this._selBox);
+      }
     }
     this.draw();
   }
@@ -630,6 +713,7 @@ export class BuildView {
     c.removeEventListener('pointerup', this._onUp);
     c.removeEventListener('pointercancel', this._onUp);
     c.removeEventListener('wheel', this._onWheel);
+    this._flush();
     this.renderer.dispose();
   }
 }

@@ -191,28 +191,57 @@ export function holdColor(i) {
   return HOLD_COLORS[i % HOLD_COLORS.length];
 }
 
+/*
+ * Materials are shared, not made per mesh: a build is thousands of boxes and most of them want
+ * the exact same material. Cached entries are never disposed, so callers must not dispose them.
+ */
+const matCache = new Map();
+
+function cached(key, make) {
+  let m = matCache.get(key);
+  if (!m) {
+    if (matCache.size > 4000) { matCache.forEach(v => { if (v.map) v.map.dispose(); v.dispose(); }); matCache.clear(); }
+    m = make();
+    matCache.set(key, m);
+  }
+  return m;
+}
+
 // A textured PBR material whose pattern is scaled to the box's real-world size
 export function realMaterial(mat, w, h, d, opts = {}) {
   const { glow, ...rest } = opts;
   const props = { ...MAT_PROPS[mat], ...rest };
   if (glow) { props.emissive = new THREE.Color(rest.color || '#ffe6a3'); props.emissiveIntensity = 1.1; props.roughness = .6; props.metalness = 0; }
   const factory = MAT_TEX[mat];
-  if (!factory || rest.color) return new THREE.MeshStandardMaterial(props);
+  if (!factory || rest.color) {
+    return cached(`p|${mat}|${glow ? 1 : 0}|${JSON.stringify(rest)}`, () => new THREE.MeshStandardMaterial(props));
+  }
   const base = factory();
   const tile = base.userData.tileFt;
-  const t = base.clone();
   const span = Math.max(w, d), thin = Math.min(w, d);
+  let rx, ry, turn = false;
   if (h < thin) {
-    t.repeat.set(span / tile, thin / tile);
+    rx = span / tile; ry = thin / tile;
   } else if (h > span * 1.5) {
-    t.center.set(.5, .5);
-    t.rotation = Math.PI / 2;
-    t.repeat.set(h / tile, span / tile);
+    turn = true; rx = h / tile; ry = span / tile;
   } else {
-    t.repeat.set(span / tile, h / tile);
+    rx = span / tile; ry = h / tile;
   }
-  t.needsUpdate = true;
-  return new THREE.MeshStandardMaterial({ map: t, ...props });
+  // Quantise the tiling so near-identical sizes share one material
+  const q = v => Math.round(v * 16) / 16;
+  rx = q(rx); ry = q(ry);
+  return cached(`t|${mat}|${turn ? 1 : 0}|${rx}|${ry}|${JSON.stringify(rest)}`, () => {
+    const t = base.clone();
+    if (turn) { t.center.set(.5, .5); t.rotation = Math.PI / 2; }
+    t.repeat.set(rx, ry);
+    t.needsUpdate = true;
+    return new THREE.MeshStandardMaterial({ map: t, ...props });
+  });
+}
+
+// Flat-shaded material for the drawing look, shared per colour
+export function flatMaterial(color, side) {
+  return cached(`f|${color}|${side || 0}`, () => new THREE.MeshLambertMaterial(side ? { color, side } : { color }));
 }
 
 export function groundMaterial(type, w, d) {

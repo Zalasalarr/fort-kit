@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { MATS } from './data.js';
-import { realMaterial, quilt } from './textures.js';
+import { realMaterial, flatMaterial, quilt } from './textures.js';
 
 /*
  * Small modelling kit for the detailed fixture models (see fixtures.js).
@@ -39,6 +39,7 @@ export const M = {
   solar: { color: '#2b3a55', metalness: .4, roughness: .3 },
 };
 
+const FX_MATS = new Map();
 const EDGE_MAT = new THREE.LineBasicMaterial({ color: 0x1d1f20, transparent: true, opacity: .42 });
 const UP = new THREE.Vector3(0, 1, 0);
 
@@ -47,9 +48,13 @@ export class Fx {
     this.v = view; this.g = group; this.mat = mat; this.y0 = y0;
   }
 
+  // Shared and cached: one model is hundreds of meshes and most reuse the same few materials
   material(spec = {}) {
     if (spec.isMaterial) return spec;
-    if (!this.v.real) return new THREE.MeshLambertMaterial({ color: MATS[this.mat].c, side: spec.side || THREE.FrontSide });
+    if (!this.v.real) return flatMaterial(MATS[this.mat].c, spec.side);
+    const key = 'x|' + JSON.stringify(spec);
+    let m = FX_MATS.get(key);
+    if (m) return m;
     const { glow, map, repeat, ...p } = spec;
     if (map === 'quilt') {
       const t = quilt().clone();
@@ -57,8 +62,10 @@ export class Fx {
       t.needsUpdate = true;
       p.map = t;
     }
-    const m = new THREE.MeshStandardMaterial(p);
+    m = new THREE.MeshStandardMaterial(p);
     if (glow) { m.emissive = new THREE.Color(glow === true ? p.color : glow); m.emissiveIntensity = 1.1; }
+    if (FX_MATS.size > 2000) FX_MATS.clear();
+    FX_MATS.set(key, m);
     return m;
   }
 
