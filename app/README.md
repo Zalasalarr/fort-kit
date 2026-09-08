@@ -13,6 +13,14 @@ npm run dev
 
 Open the printed `http://localhost:5173` URL in a browser on your Windows machine.
 
+## The easy way: one file, no install
+
+Download **`app/fort-kit.html`** from this repo (open it on GitHub and press the download button) and double-click it. The whole app — code, styles, 3D — is inlined into that one file, so it runs straight from your desktop with no Node, no npm and no server. It works offline; projects and custom parts save in that browser as usual.
+
+Copy the same file to a tablet (email it to yourself, or drop it in your cloud drive) and open it there.
+
+To regenerate it after changing the code: `npm run build:single`.
+
 ## Use it on your tablet too
 
 Serve it so other devices on your Wi-Fi can reach it:
